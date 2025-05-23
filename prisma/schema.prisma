@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Mixdown {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  room      Room     @relation(fields: [roomId], references: [id])
+  roomId    String
+  url       String
+
+  @@index([userId])
+  @@index([roomId])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  image     String?
+  rooms     Room[]   @relation("HostRooms")
+  loops     Loop[]
+  createdAt DateTime @default(now())
+  mixdowns  Mixdown[]
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  title       String
+  bpm         Int
+  keySig      String
+  code        String   @unique
+  isPublic    Boolean  @default(false)
+  hostId      String
+  host        User     @relation("HostRooms", fields: [hostId], references: [id])
+  loops       Loop[]
+  createdAt   DateTime @default(now())
+  mixdowns    Mixdown[]
+}
+
+model Loop {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int
+  url       String   // S3 link
+  roomId    String
+  userId    String
+  user      User     @relation(fields:[userId], references:[id])
+  room      Room     @relation(fields:[roomId], references:[id])
+  createdAt DateTime @default(now())
+  enabled   Boolean  @default(true)
+  volume    Float    @default(1.0)
+}
