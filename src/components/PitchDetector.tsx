@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface PitchDetectorProps {
@@ -31,15 +31,7 @@ export function PitchDetector({ isRecording, keySig }: PitchDetectorProps) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-  useEffect(() => {
-    if (isRecording) {
-      startPitchDetection();
-    } else {
-      stopPitchDetection();
-    }
-  }, [isRecording]);
-
-  const startPitchDetection = async () => {
+  const startPitchDetection = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContextRef.current = new AudioContext();
@@ -50,11 +42,39 @@ export function PitchDetector({ isRecording, keySig }: PitchDetectorProps) {
       analyserRef.current.fftSize = 2048;
       sourceRef.current.connect(analyserRef.current);
 
+      const detectPitch = () => {
+        if (!analyserRef.current || !isRecording) return;
+
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Float32Array(bufferLength);
+        analyserRef.current.getFloatTimeDomainData(dataArray);
+
+        const ac = autoCorrelate(
+          dataArray,
+          audioContextRef.current!.sampleRate
+        );
+        if (ac !== -1) {
+          const note = getNoteFromFrequency(ac);
+          setCurrentNote(note);
+          setIsInKey(isNoteInKey(note, keySig));
+        }
+
+        requestAnimationFrame(detectPitch);
+      };
+
       detectPitch();
     } catch (error) {
       console.error("Error starting pitch detection:", error);
     }
-  };
+  }, [isRecording, keySig]);
+
+  useEffect(() => {
+    if (isRecording) {
+      startPitchDetection();
+    } else {
+      stopPitchDetection();
+    }
+  }, [isRecording, startPitchDetection]);
 
   const stopPitchDetection = () => {
     if (audioContextRef.current) {
@@ -63,23 +83,6 @@ export function PitchDetector({ isRecording, keySig }: PitchDetectorProps) {
     }
     setCurrentNote("");
     setIsInKey(false);
-  };
-
-  const detectPitch = () => {
-    if (!analyserRef.current || !isRecording) return;
-
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Float32Array(bufferLength);
-    analyserRef.current.getFloatTimeDomainData(dataArray);
-
-    const ac = autoCorrelate(dataArray, audioContextRef.current!.sampleRate);
-    if (ac !== -1) {
-      const note = getNoteFromFrequency(ac);
-      setCurrentNote(note);
-      setIsInKey(isNoteInKey(note, keySig));
-    }
-
-    requestAnimationFrame(detectPitch);
   };
 
   const autoCorrelate = (buffer: Float32Array, sampleRate: number): number => {

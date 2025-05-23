@@ -63,7 +63,7 @@ export default function AuthPage({ variant }: { variant: "login" | "signup" }) {
         router.push(res.url);
         router.refresh();
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -159,7 +159,7 @@ export default function AuthPage({ variant }: { variant: "login" | "signup" }) {
             <div className="mt-6 text-center text-sm text-gray-400">
               {variant === "login" ? (
                 <>
-                  Don't have an account?{" "}
+                  Don&apos;t have an account?{" "}
                   <Link
                     href={`/signup?callbackUrl=${encodeURIComponent(
                       callbackUrl

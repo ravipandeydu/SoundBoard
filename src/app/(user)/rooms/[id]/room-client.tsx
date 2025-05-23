@@ -12,7 +12,6 @@ import {
   MicrophoneIcon,
   MusicalNoteIcon,
   ArrowDownTrayIcon,
-  ShareIcon,
   ArrowsUpDownIcon,
   XMarkIcon,
   ClipboardIcon,
@@ -72,8 +71,6 @@ export default function RoomClient({
     fetcher
   );
 
-  console.log(loops, "llllllllll");
-
   const isHost = hostId === userId;
   const isPublic = roomMeta?.isPublic;
   const [trackName, setTrackName] = useState("");
@@ -99,7 +96,7 @@ export default function RoomClient({
           `Room is now ${!roomMeta.isPublic ? "public" : "private"}`
         );
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update room visibility");
     }
   };
@@ -135,7 +132,7 @@ export default function RoomClient({
       source.connect(analyzerRef.current);
 
       // Add tempo matching if enabled
-      let destinationNode = analyzerRef.current;
+      const destinationNode = analyzerRef.current;
       if (tempoMatchEnabled) {
         const bpmInSeconds = 60 / bpm;
         const delayNode = audioContext.createDelay();
@@ -163,7 +160,7 @@ export default function RoomClient({
           } else {
             throw new Error("Failed to save recording");
           }
-        } catch (error) {
+        } catch {
           toast.error("Failed to save recording");
         }
       };
@@ -186,7 +183,7 @@ export default function RoomClient({
       visualize();
 
       setTimeout(() => rec.stop(), 30000);
-    } catch (error) {
+    } catch {
       toast.error("Failed to start recording");
     }
   }
@@ -255,7 +252,7 @@ export default function RoomClient({
         });
         return { ...prev, [id]: { enabled, volume: prev[id].volume } };
       });
-    } catch (error) {
+    } catch {
       toast.error("Failed to toggle loop");
     }
   };
@@ -270,7 +267,7 @@ export default function RoomClient({
         });
         return { ...prev, [id]: { enabled: prev[id].enabled, volume } };
       });
-    } catch (error) {
+    } catch {
       toast.error("Failed to update volume");
     }
   };
@@ -282,7 +279,7 @@ export default function RoomClient({
         toast.success("Loop deleted");
         mutateLoops();
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete loop");
     }
   };
@@ -340,7 +337,7 @@ export default function RoomClient({
 
         mutateLoops();
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to reorder tracks");
     } finally {
       setReorderLoading(false);

@@ -92,7 +92,7 @@ export default function LoopsPage() {
       if (!res.ok) throw new Error("Failed to update loop");
       await fetchLoops();
       toast.success(`Loop ${enabled ? "enabled" : "disabled"}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to update loop status");
     }
   };
@@ -106,7 +106,7 @@ export default function LoopsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: loop.enabled, volume }),
       });
-    } catch (error) {
+    } catch {
       toast.error("Failed to update volume");
     }
   };
@@ -151,8 +151,8 @@ export default function LoopsPage() {
             <div className="text-center space-y-2">
               <MusicalNoteIcon className="w-12 h-12 text-gray-500 mx-auto" />
               <p className="text-gray-400">
-                You haven't recorded any loops yet. Head to a jam room to start
-                recording!
+                You haven&apos;t recorded any loops yet. Head to a jam room to
+                start recording!
               </p>
               <Link
                 href="/rooms"
