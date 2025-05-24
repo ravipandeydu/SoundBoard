@@ -93,7 +93,8 @@ export default function CreateRoom() {
       }
 
       const data = await res.json();
-      router.push(`/rooms/${data.id}`);
+      console.log(data, "dddddd");
+      router.push(`/rooms/${data.room.id}`);
       toast.success("Room created successfully!");
     } catch {
       toast.error("Failed to create room");
@@ -105,20 +106,31 @@ export default function CreateRoom() {
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+        className="relative group overflow-hidden bg-black/40 hover:bg-white/5 border border-white/10 backdrop-blur-xl transition-all duration-300"
       >
-        <PlusIcon className="w-5 h-5" />
-        Create Room
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/10 group-hover:to-fuchsia-500/10 transition-all duration-300" />
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/20 group-hover:to-fuchsia-500/20 blur-xl transition-all duration-300" />
+        <span className="relative flex items-center gap-2">
+          <PlusIcon className="w-5 h-5" />
+          Create Room
+        </span>
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-gray-900 text-gray-100 border-gray-800">
+        <DialogContent className="sm:max-w-[425px] bg-black/90 border-white/10 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
-              <MusicalNoteIcon className="w-6 h-6 text-indigo-400" />
-              Create a Jam Room
+              <div className="p-2 rounded-xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10">
+                <MusicalNoteIcon className="w-6 h-6 text-violet-400" />
+              </div>
+              <span className="relative">
+                <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
+                <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
+                  Create a Jam Room
+                </span>
+              </span>
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-zinc-400">
               Set up your virtual jam session. BPM and key signature help keep
               everyone in sync.
             </DialogDescription>
@@ -132,18 +144,18 @@ export default function CreateRoom() {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-200">Room Title</FormLabel>
+                    <FormLabel className="text-white/90">Room Title</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="My Funky Jam"
                         {...field}
-                        className="bg-gray-800 border-gray-700 text-gray-100 focus:ring-indigo-500"
+                        className="bg-black/50 border-white/10 text-white focus:ring-violet-500/30 focus:border-violet-500/30 placeholder:text-zinc-500"
                       />
                     </FormControl>
-                    <FormDescription className="text-gray-400">
+                    <FormDescription className="text-zinc-400">
                       Give your jam session a catchy name
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-rose-400" />
                   </FormItem>
                 )}
               />
@@ -154,7 +166,7 @@ export default function CreateRoom() {
                 name="bpm"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-200">
+                    <FormLabel className="text-white/90">
                       Tempo (BPM): {field.value}
                     </FormLabel>
                     <FormControl>
@@ -167,11 +179,11 @@ export default function CreateRoom() {
                         className="py-4"
                       />
                     </FormControl>
-                    <FormDescription className="text-gray-400">
+                    <FormDescription className="text-zinc-400">
                       Beats Per Minute - sets the speed of your jam. 120 BPM is
                       a common tempo.
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-rose-400" />
                   </FormItem>
                 )}
               />
@@ -182,32 +194,32 @@ export default function CreateRoom() {
                 name="keySig"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-200">
+                    <FormLabel className="text-white/90">
                       Key Signature
                     </FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger className="bg-gray-800 border-gray-700 text-gray-100">
+                        <SelectTrigger className="bg-black/50 border-white/10 text-white">
                           <SelectValue placeholder="Select a key" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="bg-gray-800 border-gray-700">
+                      <SelectContent className="bg-black/90 border-white/10 backdrop-blur-xl">
                         {KEY_SIGNATURES.map((key) => (
                           <SelectItem
                             key={key}
                             value={key}
-                            className="text-gray-100 focus:bg-gray-700 focus:text-gray-100"
+                            className="text-white focus:bg-white/10 focus:text-white"
                           >
                             {key}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription className="text-gray-400">
+                    <FormDescription className="text-zinc-400">
                       The musical key for your jam. Helps players stay in
                       harmony.
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-rose-400" />
                   </FormItem>
                 )}
               />
@@ -217,16 +229,20 @@ export default function CreateRoom() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsOpen(false)}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                  className="border-white/10 text-white/70 hover:bg-white/5 hover:text-white transition-colors"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  className="relative group overflow-hidden bg-black/40 hover:bg-white/5 border border-white/10 backdrop-blur-xl transition-all duration-300"
                 >
-                  {loading ? "Creating..." : "Create Room"}
+                  <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/10 group-hover:to-fuchsia-500/10 transition-all duration-300" />
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/20 group-hover:to-fuchsia-500/20 blur-xl transition-all duration-300" />
+                  <span className="relative">
+                    {loading ? "Creating..." : "Create Room"}
+                  </span>
                 </Button>
               </DialogFooter>
             </form>

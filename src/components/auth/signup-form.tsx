@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,7 +49,7 @@ export default function SignupForm() {
     setError(null);
 
     try {
-      // First attempt to create the account
+      // Attempt to create the account
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,20 +61,8 @@ export default function SignupForm() {
         throw new Error(body.error || "Failed to create account");
       }
 
-      // Then attempt to sign in
-      const signInRes = await signIn("credentials", {
-        email: vals.email,
-        password: vals.password,
-        redirect: false,
-        callbackUrl,
-      });
-
-      if (signInRes?.error) {
-        setError(signInRes.error);
-      } else if (signInRes?.url) {
-        router.push(signInRes.url);
-        router.refresh();
-      }
+      // Redirect to signup success page
+      router.push(`/signup-success?email=${encodeURIComponent(vals.email)}`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred"

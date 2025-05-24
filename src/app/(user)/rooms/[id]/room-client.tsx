@@ -15,6 +15,7 @@ import {
   ArrowsUpDownIcon,
   XMarkIcon,
   ClipboardIcon,
+  PlayIcon,
 } from "@heroicons/react/24/outline";
 import { Metronome } from "@/components/Metronome";
 import { KeySignatureHelper } from "@/components/KeySignatureHelper";
@@ -24,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { PreviewMixdown } from "@/components/audio/PreviewMixdown";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -59,29 +61,29 @@ interface RoomMeta {
 // Loading skeleton for loops
 function LoopSkeleton() {
   return (
-    <Card className="bg-gray-800 border-gray-700 animate-pulse">
+    <Card className="bg-black/40 border-white/5 backdrop-blur-xl animate-pulse">
       <CardContent className="p-6">
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-gray-700 rounded" />
-                  <div className="h-4 w-32 bg-gray-700 rounded" />
-                  <div className="h-4 w-24 bg-gray-700 rounded" />
+                  <div className="w-5 h-5 bg-white/10 rounded" />
+                  <div className="h-4 w-32 bg-white/10 rounded" />
+                  <div className="h-4 w-24 bg-white/10 rounded" />
                 </div>
-                <div className="h-3 w-24 bg-gray-700 rounded mt-2" />
+                <div className="h-3 w-24 bg-white/10 rounded mt-2" />
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-6 w-12 bg-gray-700 rounded" />
-              <div className="h-6 w-10 bg-gray-700 rounded" />
+              <div className="h-6 w-12 bg-white/10 rounded" />
+              <div className="h-6 w-10 bg-white/10 rounded" />
             </div>
           </div>
-          <div className="h-12 bg-gray-700 rounded" />
+          <div className="h-12 bg-white/10 rounded" />
           <div className="flex items-center gap-4">
-            <div className="h-4 w-16 bg-gray-700 rounded" />
-            <div className="h-2 flex-1 bg-gray-700 rounded" />
+            <div className="h-4 w-16 bg-white/10 rounded" />
+            <div className="h-2 flex-1 bg-white/10 rounded" />
           </div>
         </div>
       </CardContent>
@@ -92,12 +94,12 @@ function LoopSkeleton() {
 // Error display component
 function ErrorDisplay({ message }: { message: string }) {
   return (
-    <div className="p-6 rounded-lg bg-red-500/10 border border-red-500/20">
-      <p className="text-red-400 text-center">{message}</p>
+    <div className="p-6 rounded-lg bg-rose-500/10 border border-rose-500/20">
+      <p className="text-rose-400 text-center">{message}</p>
       <Button
         onClick={() => window.location.reload()}
         variant="outline"
-        className="mt-4 mx-auto block border-red-500/50 text-red-400 hover:bg-red-500/10"
+        className="mt-4 mx-auto block border-rose-500/50 text-rose-400 hover:bg-rose-500/10"
       >
         Try Again
       </Button>
@@ -121,6 +123,18 @@ function TooltipButton({
       </TooltipContent>
     </Tooltip>
   );
+}
+
+// Add debounce utility function at the top level
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
 }
 
 export default function RoomClient({
@@ -170,39 +184,86 @@ export default function RoomClient({
   >({});
   const [mixing, setMixing] = useState(false);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
-  const analyzerRef = useRef<AnalyserNode | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [audioContexts] = useState<Record<string, AudioContext>>({});
+  const [, setConnectedElements] = useState<Set<string>>(new Set());
+  const audioSourceNodes = useRef<Record<string, MediaElementAudioSourceNode>>(
+    {}
+  );
 
+  // Create a ref to store the debounced API calls
+  const debouncedApiCalls = useRef<Record<string, (volume: number) => void>>(
+    {}
+  );
+
+  const [previewTracks, setPreviewTracks] = useState<
+    { audioBuffer: AudioBuffer; volume: number; isMuted: boolean }[]
+  >([]);
+  const [isPreviewReady, setIsPreviewReady] = useState(false);
+
+  // Initialize debounced API calls for each loop
   useEffect(() => {
     if (!loops) return;
-    const updated: Record<string, { enabled: boolean; volume: number }> = {};
-    loops.forEach((l) => {
-      updated[l.id] = { enabled: l.enabled, volume: l.volume ?? 1.0 };
-      if (audioRefs.current[l.id]) {
-        audioRefs.current[l.id]!.volume = l.volume ?? 1.0;
+
+    loops.forEach((loop) => {
+      if (!debouncedApiCalls.current[loop.id]) {
+        debouncedApiCalls.current[loop.id] = debounce(
+          async (volume: number) => {
+            try {
+              const res = await fetch(`/api/loops/${loop.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  enabled: settings[loop.id]?.enabled ?? false,
+                  volume,
+                }),
+              });
+
+              if (!res.ok) throw new Error("Failed to update volume");
+            } catch (error) {
+              console.error("Volume update error:", error);
+              toast.error("Failed to update volume");
+            }
+          },
+          500
+        ); // 500ms debounce delay
       }
     });
-    setSettings(updated);
+  }, [loops, settings]);
+
+  // Initialize settings when loops change
+  useEffect(() => {
+    if (!loops) return;
+
+    const newSettings: Record<string, { enabled: boolean; volume: number }> =
+      {};
+    loops.forEach((loop) => {
+      newSettings[loop.id] = settings[loop.id] || {
+        enabled: loop.enabled,
+        volume: loop.volume ?? 1.0,
+      };
+    });
+    setSettings(newSettings);
   }, [loops]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup audio contexts when component unmounts
+      Object.values(audioContexts).forEach((ctx) => {
+        if (ctx.state !== "closed") {
+          ctx.close();
+        }
+      });
+      Object.values(audioSourceNodes.current).forEach((source) => {
+        source.disconnect();
+      });
+      audioSourceNodes.current = {};
+      setConnectedElements(new Set());
+    };
+  }, [audioContexts]);
 
   async function startRec() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyzerRef.current = audioContext.createAnalyser();
-      source.connect(analyzerRef.current);
-
-      // Add tempo matching if enabled
-      const destinationNode = analyzerRef.current;
-      if (tempoMatchEnabled) {
-        const bpmInSeconds = 60 / bpm;
-        const delayNode = audioContext.createDelay();
-        delayNode.delayTime.value = bpmInSeconds;
-        source.connect(delayNode);
-        delayNode.connect(destinationNode);
-      }
-
       const rec = new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       rec.ondataavailable = (e) => chunks.push(e.data);
@@ -241,9 +302,6 @@ export default function RoomClient({
         });
       }, 1000);
 
-      // Start visualization
-      visualize();
-
       setTimeout(() => rec.stop(), 30000);
     } catch {
       toast.error("Failed to start recording");
@@ -257,56 +315,26 @@ export default function RoomClient({
     setRecordingTime(0);
   }
 
-  function visualize() {
-    if (!analyzerRef.current || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const analyzer = analyzerRef.current;
-    analyzer.fftSize = 2048;
-    const bufferLength = analyzer.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    function draw() {
-      if (!recording || !ctx) return;
-      requestAnimationFrame(draw);
-
-      analyzer.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = "rgb(20, 24, 33)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgb(129, 140, 248)";
-      ctx.beginPath();
-
-      const sliceWidth = canvas.width / bufferLength;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
-
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
-    }
-
-    draw();
-  }
-
   const toggleLoop = async (id: string) => {
     try {
       setSettings((prev) => {
         const enabled = !prev[id].enabled;
+        const audioEl = audioRefs.current[id];
+
+        if (audioEl) {
+          if (enabled) {
+            const playPromise = audioEl.play();
+            if (playPromise !== undefined) {
+              playPromise.catch((error) => {
+                console.error("Playback failed:", error);
+                toast.error("Failed to play audio");
+              });
+            }
+          } else {
+            audioEl.pause();
+          }
+        }
+
         fetch(`/api/loops/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -318,12 +346,12 @@ export default function RoomClient({
           })
           .catch(() => {
             toast.error("Failed to toggle loop");
-            // Revert the toggle if the API call fails
             return prev;
           });
         return { ...prev, [id]: { enabled, volume: prev[id].volume } };
       });
-    } catch {
+    } catch (error) {
+      console.error("Toggle loop error:", error);
       toast.error("Failed to toggle loop");
     }
   };
@@ -332,27 +360,15 @@ export default function RoomClient({
     try {
       setSettings((prev) => {
         const audio = audioRefs.current[id];
-        if (audio) audio.volume = volume;
-
-        fetch(`/api/loops/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: prev[id].enabled, volume }),
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error("Failed to update volume");
-            toast.success("Volume updated");
-          })
-          .catch(() => {
-            // Revert the volume if the API call fails
-            if (audio) audio.volume = prev[id].volume;
-            toast.error("Failed to update volume");
-            return prev;
-          });
-
+        if (audio) {
+          audio.volume = volume;
+        }
         return { ...prev, [id]: { enabled: prev[id].enabled, volume } };
       });
-    } catch {
+
+      debouncedApiCalls.current[id]?.(volume);
+    } catch (error) {
+      console.error("Change volume error:", error);
       toast.error("Failed to update volume");
     }
   };
@@ -436,6 +452,44 @@ export default function RoomClient({
       toast.error("Failed to reorder tracks");
     } finally {
       setReorderLoading(false);
+    }
+  };
+
+  const preparePreview = async () => {
+    if (!loops) return;
+    const active = loops.filter((l) => settings[l.id]?.enabled);
+    if (!active.length) {
+      toast.error("No active loops to preview");
+      return;
+    }
+
+    setMixing(true);
+    try {
+      const buffers = await Promise.all(
+        active.map((l) => fetch(l.url).then((r) => r.arrayBuffer()))
+      );
+      const decodeCtx = new AudioContext();
+      const decoded: AudioBuffer[] = [];
+      for (let i = 0; i < buffers.length; i++) {
+        const audioBuf = await decodeCtx.decodeAudioData(buffers[i]);
+        decoded.push(audioBuf);
+      }
+      await decodeCtx.close();
+
+      setPreviewTracks(
+        active.map((loop, index) => ({
+          audioBuffer: decoded[index],
+          volume: settings[loop.id]?.volume ?? 1,
+          isMuted: !settings[loop.id]?.enabled,
+        }))
+      );
+      setIsPreviewReady(true);
+      toast.success("Preview ready!");
+    } catch (err) {
+      console.error("Preview preparation failed:", err);
+      toast.error("Could not prepare preview. Please try again.");
+    } finally {
+      setMixing(false);
     }
   };
 
@@ -538,7 +592,7 @@ export default function RoomClient({
     return new Blob([view], { type: "audio/wav" });
   };
 
-  const sortedLoops = loops?.sort((a, b) => a.order - b.order) ?? [];
+  // const sortedLoops = loops?.sort((a, b) => a.order - b.order) ?? [];
 
   const toggleRoomPublic = async () => {
     if (!roomMeta || isUpdatingVisibility) return;
@@ -595,374 +649,394 @@ export default function RoomClient({
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-gray-700">
-        <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-300">
-            {title}
-          </h1>
-          <div className="flex items-center gap-3 mt-2 text-gray-400">
-            <span>Hosted by {hostName}</span>
-            <span>•</span>
-            <span>{bpm} BPM</span>
-            {keySig && (
-              <>
-                <span>•</span>
-                <span>{keySig}</span>
-              </>
-            )}
-            {code && (
-              <>
-                <span>•</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono bg-gray-800 px-2 py-1 rounded text-indigo-300">
-                    {code}
-                  </span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(code);
-                          toast.success("Room code copied to clipboard!");
-                        }}
-                        className="text-gray-400 hover:text-indigo-300"
-                      >
-                        <ClipboardIcon className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copy room code</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {isHost && roomMeta && (
-            <div className="flex items-center gap-3">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Switch
-                    checked={isPublic}
-                    onCheckedChange={toggleRoomPublic}
-                    disabled={isUpdatingVisibility}
-                    className={`${isPublic ? "bg-indigo-600" : "bg-gray-700"} ${
-                      isUpdatingVisibility
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Make room {isPublic ? "private" : "public"}</p>
-                </TooltipContent>
-              </Tooltip>
-              <span className="text-sm font-medium text-gray-300">
-                {isUpdatingVisibility ? (
-                  <span className="inline-flex items-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Updating...
-                  </span>
-                ) : isPublic ? (
-                  "Public Room"
-                ) : (
-                  "Private Room"
-                )}
+    <div className="min-h-screen bg-black">
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold">
+              <span className="relative">
+                <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
+                <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
+                  {title}
+                </span>
               </span>
-            </div>
-          )}
-          {isHost && <InviteModal code={code} />}
-        </div>
-      </div>
+            </h1>
+            <p className="text-zinc-400 mt-2 text-sm sm:text-base">
+              Hosted by {hostName} • {bpm} BPM • {keySig}
+            </p>
+          </div>
 
-      {/* Musical Helpers */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <KeySignatureHelper keySig={keySig} />
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Metronome bpm={bpm} />
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <div className="flex items-center gap-4 self-end sm:self-auto">
+            {isHost && (
+              <div className="flex items-center gap-2">
                 <Switch
-                  checked={tempoMatchEnabled}
-                  onCheckedChange={setTempoMatchEnabled}
-                  className={`${
-                    tempoMatchEnabled ? "bg-indigo-600" : "bg-gray-700"
-                  }`}
+                  checked={isPublic}
+                  onCheckedChange={toggleRoomPublic}
+                  disabled={isUpdatingVisibility}
+                  className="data-[state=checked]:bg-violet-500"
                 />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Match recording to tempo</p>
-              </TooltipContent>
-            </Tooltip>
-            <span className="text-sm text-gray-400">Tempo Match</span>
-          </div>
-          <PitchDetector isRecording={recording} keySig={keySig} />
-        </div>
-      </div>
-
-      {/* Recording Controls */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <Input
-            type="text"
-            placeholder="Track name (optional)"
-            value={trackName}
-            onChange={(e) => setTrackName(e.target.value)}
-            className="max-w-xs bg-gray-800 border-gray-700 text-gray-100"
-            disabled={recording}
-          />
-          <TooltipButton
-            tooltip={recording ? "Stop recording" : "Start recording"}
-            onClick={recording ? stopRec : startRec}
-            className={`${
-              recording
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-indigo-600 hover:bg-indigo-700"
-            } text-white gap-2 min-w-[160px]`}
-          >
-            <MicrophoneIcon className="w-5 h-5" />
-            {recording ? `Stop (${30 - recordingTime}s)` : "Start Recording"}
-          </TooltipButton>
-          <TooltipButton
-            tooltip="Export all enabled tracks as a single audio file"
-            disabled={mixing}
-            onClick={exportMixdown}
-            variant="outline"
-            className="border-indigo-400 text-indigo-400 hover:bg-indigo-950 gap-2"
-          >
-            <ArrowDownTrayIcon className="w-5 h-5" />
-            {mixing ? "Mixing…" : "Export Mixdown"}
-          </TooltipButton>
-          {sortedLoops.length > 0 && (
-            <TooltipButton
-              tooltip={
-                isReordering ? "Finish reordering" : "Change track order"
-              }
-              variant="outline"
-              onClick={() => setIsReordering(!isReordering)}
-              className={`border-gray-600 text-gray-400 hover:bg-gray-800 gap-2 ${
-                isReordering ? "bg-gray-800" : ""
-              }`}
-            >
-              <ArrowsUpDownIcon className="w-5 h-5" />
-              {isReordering ? "Done Reordering" : "Reorder Tracks"}
-            </TooltipButton>
-          )}
-        </div>
-
-        {recording && (
-          <div className="relative h-24 bg-gray-800 rounded-lg overflow-hidden">
-            <canvas
-              ref={canvasRef}
-              className="w-full h-full"
-              width={1200}
-              height={96}
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="px-4 py-2 bg-red-600/90 rounded-full text-white font-medium animate-pulse">
-                Recording... {30 - recordingTime}s
+                <span className="text-zinc-400 text-sm">Public</span>
               </div>
-            </div>
+            )}
+            <InviteModal code={code} />
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Loops */}
-      <div className="grid gap-6">
-        {isLoopsLoading && !loops ? (
-          // Show loading skeletons while refreshing data
-          [1, 2, 3].map((i) => <LoopSkeleton key={i} />)
-        ) : loopsError ? (
-          // Show error state for loops
-          <ErrorDisplay message="Failed to load loops. Please try again later." />
-        ) : sortedLoops.length === 0 ? (
-          // Show empty state
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-6 text-center">
-              <p className="text-gray-400">
-                No loops recorded yet. Start by recording one!
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          // Show actual loops
-          sortedLoops.map((l) => {
-            const setting = settings[l.id] || { enabled: true, volume: 1 };
-            const time = new Date(l.createdAt).toLocaleString();
-            return (
-              <Card
-                key={l.id}
-                className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-all"
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-4">
-                        {isReordering && (
-                          <div className="flex gap-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => reorderLoop(l.id, "up")}
-                                  disabled={l.order === 0 || reorderLoading}
-                                  className="px-2 hover:bg-gray-700"
-                                >
-                                  ↑
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Move track up</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => reorderLoop(l.id, "down")}
-                                  disabled={
-                                    l.order === sortedLoops.length - 1 ||
-                                    reorderLoading
-                                  }
-                                  className="px-2 hover:bg-gray-700"
-                                >
-                                  ↓
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Move track down</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
+        {/* Controls */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+            {/* Recording Card */}
+            <Card className="group relative overflow-hidden bg-[#1a1625] border-white/5 backdrop-blur-xl hover:bg-[#1e1a2e] transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-fuchsia-500/5 to-transparent transition-all duration-300" />
+              <div className="absolute -inset-0.5 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/10 to-transparent blur-xl transition-all duration-300" />
+              <CardContent className="relative p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-[#2a1f3d]">
+                    <MicrophoneIcon className="w-5 h-5 sm:w-6 sm:h-6 text-violet-400" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-white">
+                    Recording
+                  </h2>
+                </div>
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Track name"
+                    value={trackName}
+                    onChange={(e) => setTrackName(e.target.value)}
+                    className="bg-[#12101a] border-white/10 text-white focus:ring-violet-500/30 focus:border-violet-500/30 placeholder:text-zinc-500 rounded-lg sm:rounded-xl h-10 sm:h-12 px-3 sm:px-4"
+                  />
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                    <TooltipButton
+                      tooltip={recording ? "Stop recording" : "Start recording"}
+                      onClick={recording ? stopRec : startRec}
+                      className={`relative group/btn overflow-hidden bg-[#2a1f3d] hover:bg-[#382952] border-0 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2 sm:py-3 transition-all duration-300 w-full sm:w-auto ${
+                        recording
+                          ? "text-rose-400 hover:text-rose-300"
+                          : "text-violet-400 hover:text-violet-300"
+                      }`}
+                    >
+                      <span className="relative flex items-center justify-center gap-3">
+                        {recording ? (
+                          <>
+                            <XMarkIcon className="w-5 h-5" />
+                            <span className="font-medium flex items-center gap-2">
+                              Stop ({30 - recordingTime}s)
+                              <span className="flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rose-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                              </span>
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <MicrophoneIcon className="w-5 h-5" />
+                            <span className="font-medium">Record</span>
+                          </>
                         )}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <MusicalNoteIcon className="w-5 h-5 text-indigo-400" />
-                            <span className="text-gray-300 font-medium">
-                              {l.name || l.user.name}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              by {l.user.name}
-                            </span>
+                      </span>
+                    </TooltipButton>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <Switch
+                        checked={tempoMatchEnabled}
+                        onCheckedChange={setTempoMatchEnabled}
+                        className="data-[state=checked]:bg-violet-500"
+                      />
+                      <span className="text-zinc-400 text-sm font-medium">
+                        Tempo Match
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tools Card */}
+            <Card className="group relative overflow-hidden bg-[#1a1625] border-white/5 backdrop-blur-xl hover:bg-[#1e1a2e] transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 via-pink-500/5 to-transparent transition-all duration-300" />
+              <div className="absolute -inset-0.5 bg-gradient-to-br from-fuchsia-500/10 via-pink-500/10 to-transparent blur-xl transition-all duration-300" />
+              <CardContent className="relative p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-[#2a1f3d]">
+                    <MusicalNoteIcon className="w-5 h-5 sm:w-6 sm:h-6 text-fuchsia-400" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-white">
+                    Tools
+                  </h2>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Metronome bpm={bpm} />
+                  <KeySignatureHelper keySig={keySig} />
+                  {recording && (
+                    <div className="md:col-span-2">
+                      <PitchDetector isRecording={recording} keySig={keySig} />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Export Column */}
+          <div className="lg:col-span-1">
+            <Card className="group relative overflow-hidden bg-[#1a1625] border-white/5 backdrop-blur-xl hover:bg-[#1e1a2e] transition-all duration-300 lg:sticky lg:top-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 via-rose-500/5 to-transparent transition-all duration-300" />
+              <div className="absolute -inset-0.5 bg-gradient-to-br from-pink-500/10 via-rose-500/10 to-transparent blur-xl transition-all duration-300" />
+              <CardContent className="relative p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-[#2a1f3d]">
+                      <ArrowDownTrayIcon className="w-5 h-5 sm:w-6 sm:h-6 text-pink-400" />
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-semibold text-white">
+                      Export
+                    </h2>
+                  </div>
+                  {isPreviewReady && (
+                    <div className="text-sm text-zinc-400">
+                      {previewTracks.length} Track
+                      {previewTracks.length !== 1 ? "s" : ""} Selected
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4 sm:space-y-6">
+                  {isPreviewReady && previewTracks.length > 0 ? (
+                    <>
+                      <div className="relative p-3 sm:p-4 rounded-lg sm:rounded-xl bg-black/40 backdrop-blur-sm border border-white/5">
+                        <PreviewMixdown tracks={previewTracks} bpm={bpm} />
+                      </div>
+
+                      <TooltipButton
+                        tooltip="Export all enabled tracks as a single audio file"
+                        onClick={exportMixdown}
+                        disabled={mixing}
+                        className="relative group/btn overflow-hidden bg-[#2a1f3d] hover:bg-[#382952] border-0 rounded-lg sm:rounded-xl w-full px-4 sm:px-6 py-2 sm:py-3 transition-all duration-300"
+                      >
+                        <span className="relative flex items-center gap-3 justify-center text-pink-400 group-hover/btn:text-pink-300">
+                          {mixing ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-t-pink-500 border-r-rose-500 border-b-pink-500 border-l-rose-500 rounded-full animate-spin" />
+                              <span className="font-medium">Exporting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowDownTrayIcon className="w-5 h-5" />
+                              <span className="font-medium">
+                                Export Mixdown
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </TooltipButton>
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="relative p-4 sm:p-6 rounded-lg sm:rounded-xl bg-black/40 backdrop-blur-sm border border-white/5">
+                        <div className="flex flex-col items-center justify-center text-center space-y-3">
+                          <div className="p-2 sm:p-3 rounded-full bg-[#2a1f3d]">
+                            <PlayIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
                           </div>
-                          <time
-                            dateTime={l.createdAt}
-                            className="text-sm text-gray-500 mt-1 block"
-                          >
-                            {time}
-                          </time>
+                          <div className="space-y-1">
+                            <h3 className="font-medium text-gray-200">
+                              Preview Your Mix
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-400">
+                              Enable the tracks you want to include and click
+                              preview
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400">Enable</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Switch
-                              checked={setting.enabled}
-                              onCheckedChange={() => toggleLoop(l.id)}
-                              className={`${
-                                setting.enabled
-                                  ? "bg-indigo-600"
-                                  : "bg-gray-700"
-                              }`}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              {setting.enabled ? "Disable" : "Enable"} track
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                        {(isHost || l.user.id === userId) && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
+
+                      <TooltipButton
+                        tooltip="Preview the mixdown before exporting"
+                        onClick={preparePreview}
+                        disabled={mixing}
+                        className="relative group/btn overflow-hidden bg-[#2a1f3d] hover:bg-[#382952] border-0 rounded-lg sm:rounded-xl w-full px-4 sm:px-6 py-2 sm:py-3 transition-all duration-300"
+                      >
+                        <span className="relative flex items-center gap-3 justify-center text-pink-400 group-hover/btn:text-pink-300">
+                          {mixing ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-t-pink-500 border-r-rose-500 border-b-pink-500 border-l-rose-500 rounded-full animate-spin" />
+                              <span className="font-medium">
+                                Preparing Preview...
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <PlayIcon className="w-5 h-5" />
+                              <span className="font-medium">
+                                Preview Mixdown
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </TooltipButton>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Loops */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-semibold">
+                <span className="relative">
+                  <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
+                  <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
+                    Recorded Loops
+                  </span>
+                </span>
+              </h2>
+              {loops && loops.length > 0 && (
+                <TooltipButton
+                  tooltip={isReordering ? "Save order" : "Reorder loops"}
+                  onClick={() => {
+                    if (isReordering && reorderLoading) return;
+                    setIsReordering(!isReordering);
+                  }}
+                  className="relative group overflow-hidden bg-black/40 hover:bg-white/5 border border-white/10 backdrop-blur-xl transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/10 group-hover:to-fuchsia-500/10 transition-all duration-300" />
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/20 group-hover:to-fuchsia-500/20 blur-xl transition-all duration-300" />
+                  <span className="relative flex items-center gap-2">
+                    <ArrowsUpDownIcon className="w-5 h-5" />
+                    {isReordering ? "Save Order" : "Reorder"}
+                  </span>
+                </TooltipButton>
+              )}
+            </div>
+          </div>
+
+          {isLoopsLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <LoopSkeleton key={i} />
+              ))}
+            </div>
+          ) : loopsError ? (
+            <ErrorDisplay message="Failed to load loops" />
+          ) : loops?.length === 0 ? (
+            <Card className="bg-black/40 border-white/5 backdrop-blur-xl">
+              <CardContent className="p-6">
+                <p className="text-zinc-400 text-center">
+                  No loops recorded yet
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {loops?.map((loop) => (
+                <Card
+                  key={loop.id}
+                  className="group relative overflow-hidden bg-black/40 border-white/5 backdrop-blur-xl hover:bg-white/5 transition-all duration-300"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/5 group-hover:to-fuchsia-500/5 transition-all duration-300" />
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/10 group-hover:to-fuchsia-500/10 blur-xl transition-all duration-300" />
+                  <CardContent className="relative p-6">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-4">
+                          <Switch
+                            checked={settings[loop.id]?.enabled ?? false}
+                            onCheckedChange={() => toggleLoop(loop.id)}
+                            className="data-[state=checked]:bg-violet-500"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-violet-300 group-hover:text-violet-200 transition-colors">
+                                {loop.name}
+                              </h3>
+                              <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">
+                                by {loop.user.name}
+                              </span>
+                            </div>
+                            <time
+                              dateTime={loop.createdAt}
+                              className="text-sm text-zinc-500 group-hover:text-zinc-400 transition-colors"
+                            >
+                              {new Date(loop.createdAt).toLocaleDateString()}
+                            </time>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {isReordering ? (
+                            <div className="flex items-center gap-2">
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteLoop(l.id)}
-                                className="text-gray-400 hover:text-red-400 hover:bg-gray-700"
+                                onClick={() => reorderLoop(loop.id, "up")}
+                                disabled={reorderLoading}
+                                className="p-2 h-auto bg-black/40 hover:bg-white/5 border border-white/10"
                               >
-                                <XMarkIcon className="w-5 h-5" />
+                                ↑
                               </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Delete track</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                              <Button
+                                onClick={() => reorderLoop(loop.id, "down")}
+                                disabled={reorderLoading}
+                                className="p-2 h-auto bg-black/40 hover:bg-white/5 border border-white/10"
+                              >
+                                ↓
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <Button
+                                onClick={() => deleteLoop(loop.id)}
+                                className="p-2 h-auto bg-black/40 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/30 text-zinc-400 hover:text-rose-400 transition-all"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(loop.url);
+                                  toast.success("URL copied to clipboard");
+                                }}
+                                className="p-2 h-auto bg-black/40 hover:bg-white/5 border border-white/10"
+                              >
+                                <ClipboardIcon className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <audio
+                        key={loop.id}
+                        ref={(el) => {
+                          if (el) {
+                            audioRefs.current[loop.id] = el;
+                            el.volume = settings[loop.id]?.volume ?? 1.0;
+                          } else {
+                            audioRefs.current[loop.id] = null;
+                          }
+                        }}
+                        src={loop.url}
+                        controls
+                        className="w-full"
+                        preload="auto"
+                      />
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-zinc-400">Volume</span>
+                        <Slider
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={[settings[loop.id]?.volume ?? 1]}
+                          onValueChange={(v) => changeVolume(loop.id, v[0])}
+                          className="flex-1"
+                        />
                       </div>
                     </div>
-
-                    <audio
-                      src={l.url}
-                      controls
-                      muted={!setting.enabled}
-                      ref={(el) => {
-                        audioRefs.current[l.id] = el;
-                        if (el) el.volume = setting.volume;
-                      }}
-                      className="w-full rounded bg-gray-700"
-                    />
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-gray-400 min-w-[4rem]">
-                            Volume
-                          </span>
-                          <Slider
-                            value={[setting.volume]}
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            onValueChange={([value]) =>
-                              changeVolume(l.id, value)
-                            }
-                            className="flex-1"
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          Adjust track volume:{" "}
-                          {Math.round(setting.volume * 100)}%
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

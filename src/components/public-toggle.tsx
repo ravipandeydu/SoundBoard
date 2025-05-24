@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { LockClosedIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Props {
   roomId: string;
@@ -11,9 +18,12 @@ interface Props {
 
 export default function PublicToggle({ roomId, initialIsPublic }: Props) {
   const [isPublic, setIsPublic] = useState(initialIsPublic);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const toggle = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
     try {
       const res = await fetch(`/api/rooms/${roomId}`, {
         method: "PATCH",
@@ -30,26 +40,70 @@ export default function PublicToggle({ roomId, initialIsPublic }: Props) {
     } catch (error) {
       console.error(error);
       toast.error("Failed to update room visibility");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="p-4 border-t flex items-center justify-between">
-      <span
-        className={
-          isPublic
-            ? "inline-flex px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
-            : "inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
-        }
-      >
-        {isPublic ? "Public" : "Private"}
-      </span>
-      <button
-        onClick={toggle}
-        className="text-sm underline hover:text-indigo-600"
-      >
-        {isPublic ? "Make Private" : "Make Public"}
-      </button>
+    <div className="flex items-center justify-between p-4 border-t border-gray-700/50">
+      <div className="flex items-center gap-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={`p-1.5 rounded-lg cursor-help ${
+                isPublic ? "bg-emerald-500/10" : "bg-gray-500/10"
+              }`}
+            >
+              {isPublic ? (
+                <GlobeAltIcon className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <LockClosedIcon className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>
+              {isPublic
+                ? "This room is visible to everyone"
+                : "This room is only visible to invited members"}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+        <div className="flex flex-col">
+          <span
+            className={`text-sm font-medium ${
+              isPublic ? "text-emerald-400" : "text-gray-400"
+            }`}
+          >
+            {isPublic ? "Public Room" : "Private Room"}
+          </span>
+          <span className="text-xs text-gray-500">
+            {isPublic ? "Anyone can join" : "Invite only"}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Switch
+              checked={isPublic}
+              onCheckedChange={toggle}
+              disabled={isLoading}
+              className={`${
+                isPublic
+                  ? "bg-emerald-600 hover:bg-emerald-500"
+                  : "bg-gray-700 hover:bg-gray-600"
+              } ${
+                isLoading ? "opacity-50 cursor-not-allowed" : ""
+              } transition-colors duration-200`}
+            />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Click to make room {isPublic ? "private" : "public"}</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }

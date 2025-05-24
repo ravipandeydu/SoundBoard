@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
@@ -46,36 +46,44 @@ export function KeySignatureHelper({ keySig }: KeySignatureHelperProps) {
   const chords = CHORDS[keySig] || CHORDS["C"];
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex justify-between items-center">
-          <span className="text-lg text-indigo-300">Key of {keySig}</span>
+    <Card className="group relative overflow-hidden bg-[#12101a] border-white/5 backdrop-blur-xl hover:bg-[#1e1a2e] transition-all duration-300">
+      <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 via-pink-500/5 to-transparent transition-all duration-300" />
+      <div className="absolute -inset-0.5 bg-gradient-to-br from-fuchsia-500/10 via-pink-500/10 to-transparent blur-xl transition-all duration-300" />
+      <CardContent className="relative p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-[#2a1f3d]">
+              <div className="w-4 h-4 bg-gradient-to-br from-fuchsia-400 to-pink-400 rounded" />
+            </div>
+            <span className="text-lg font-semibold text-white">
+              Key of {keySig}
+            </span>
+          </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-indigo-300"
+            className="relative group/btn h-8 w-8 p-0 hover:bg-[#2a1f3d] rounded-lg"
           >
             {isExpanded ? (
-              <ChevronUpIcon className="w-5 h-5" />
+              <ChevronUpIcon className="w-5 h-5 text-fuchsia-400 group-hover/btn:text-fuchsia-300" />
             ) : (
-              <ChevronDownIcon className="w-5 h-5" />
+              <ChevronDownIcon className="w-5 h-5 text-fuchsia-400 group-hover/btn:text-fuchsia-300" />
             )}
           </Button>
-        </CardTitle>
-      </CardHeader>
-      {isExpanded && (
-        <CardContent className="pt-0">
-          <div className="space-y-4">
+        </div>
+
+        {isExpanded && (
+          <div className="space-y-4 pt-2">
             <div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">
+              <h3 className="text-sm font-medium text-zinc-400 mb-3">
                 Scale Notes
               </h3>
               <div className="flex flex-wrap gap-2">
                 {scale.map((note) => (
                   <span
                     key={note}
-                    className="px-2 py-1 bg-gray-700 rounded text-sm text-indigo-200"
+                    className="px-3 py-1.5 text-sm font-medium bg-[#2a1f3d] rounded-lg text-fuchsia-300 hover:bg-[#382952] hover:text-fuchsia-200 transition-colors"
                   >
                     {note}
                   </span>
@@ -83,14 +91,14 @@ export function KeySignatureHelper({ keySig }: KeySignatureHelperProps) {
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">
+              <h3 className="text-sm font-medium text-zinc-400 mb-3">
                 Common Chords
               </h3>
               <div className="flex flex-wrap gap-2">
                 {chords.map((chord) => (
                   <span
                     key={chord}
-                    className="px-2 py-1 bg-gray-700 rounded text-sm text-indigo-200"
+                    className="px-3 py-1.5 text-sm font-medium bg-[#2a1f3d] rounded-lg text-pink-300 hover:bg-[#382952] hover:text-pink-200 transition-colors"
                   >
                     {chord}
                   </span>
@@ -98,8 +106,8 @@ export function KeySignatureHelper({ keySig }: KeySignatureHelperProps) {
               </div>
             </div>
           </div>
-        </CardContent>
-      )}
+        )}
+      </CardContent>
     </Card>
   );
 }

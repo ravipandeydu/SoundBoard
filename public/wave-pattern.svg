@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1440" height="200" viewBox="0 0 1440 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wave1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:0.3"/>
+      <stop offset="50%" style="stop-color:#D946EF;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:0.3"/>
+    </linearGradient>
+    <linearGradient id="wave2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#D946EF;stop-opacity:0.2"/>
+      <stop offset="50%" style="stop-color:#8B5CF6;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#D946EF;stop-opacity:0.2"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- First wave -->
+  <path d="M0,100 C240,150 480,50 720,100 C960,150 1200,50 1440,100 V200 H0 V100 Z" fill="url(#wave1)">
+    <animate attributeName="d" 
+      dur="10s" 
+      repeatCount="indefinite" 
+      values="
+        M0,100 C240,150 480,50 720,100 C960,150 1200,50 1440,100 V200 H0 V100 Z;
+        M0,100 C240,50 480,150 720,100 C960,50 1200,150 1440,100 V200 H0 V100 Z;
+        M0,100 C240,150 480,50 720,100 C960,150 1200,50 1440,100 V200 H0 V100 Z"
+    />
+  </path>
+  
+  <!-- Second wave -->
+  <path d="M0,120 C240,170 480,70 720,120 C960,170 1200,70 1440,120 V200 H0 V120 Z" fill="url(#wave2)">
+    <animate attributeName="d" 
+      dur="8s" 
+      repeatCount="indefinite" 
+      values="
+        M0,120 C240,170 480,70 720,120 C960,170 1200,70 1440,120 V200 H0 V120 Z;
+        M0,120 C240,70 480,170 720,120 C960,70 1200,170 1440,120 V200 H0 V120 Z;
+        M0,120 C240,170 480,70 720,120 C960,170 1200,70 1440,120 V200 H0 V120 Z"
+    />
+  </path>
+</svg> 

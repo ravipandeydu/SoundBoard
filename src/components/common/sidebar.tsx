@@ -118,7 +118,7 @@ export function SidebarHeading({
       {...props}
       className={clsx(
         className,
-        "mb-1 px-2 text-xs/6 font-medium text-zinc-500 dark:text-zinc-400"
+        "mb-1 px-2 text-xs/6 font-medium text-zinc-400 dark:text-zinc-300"
       )}
     />
   );
@@ -138,24 +138,24 @@ export const SidebarItem = forwardRef(function SidebarItem(
 ) {
   const classes = clsx(
     // Base
-    "flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-base/6 font-medium text-zinc-950 sm:py-2 sm:text-sm/5",
+    "flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-base/6 font-medium text-zinc-200 sm:py-2 sm:text-sm/5",
     // Leading icon/icon-only
-    "*:data-[slot=icon]:size-6 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:fill-zinc-500 sm:*:data-[slot=icon]:size-5",
+    "*:data-[slot=icon]:size-6 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:fill-zinc-400 sm:*:data-[slot=icon]:size-5",
     // Trailing icon (down chevron or similar)
     "*:last:data-[slot=icon]:ml-auto *:last:data-[slot=icon]:size-5 sm:*:last:data-[slot=icon]:size-4",
     // Avatar
     "*:data-[slot=avatar]:-m-0.5 *:data-[slot=avatar]:size-7 sm:*:data-[slot=avatar]:size-6",
     // Hover
-    "data-hover:bg-zinc-950/5 data-hover:*:data-[slot=icon]:fill-zinc-950",
+    "data-hover:bg-zinc-700/30 data-hover:*:data-[slot=icon]:fill-zinc-200",
     // Active
-    "data-active:bg-zinc-950/5 data-active:*:data-[slot=icon]:fill-zinc-950",
+    "data-active:bg-zinc-700/30 data-active:*:data-[slot=icon]:fill-zinc-200",
     // Current
-    "data-current:*:data-[slot=icon]:fill-zinc-950",
+    "data-current:*:data-[slot=icon]:fill-zinc-200",
     // Dark mode
-    "dark:text-white dark:*:data-[slot=icon]:fill-zinc-400",
-    "dark:data-hover:bg-white/5 dark:data-hover:*:data-[slot=icon]:fill-white",
-    "dark:data-active:bg-white/5 dark:data-active:*:data-[slot=icon]:fill-white",
-    "dark:data-current:*:data-[slot=icon]:fill-white"
+    "dark:text-zinc-200 dark:*:data-[slot=icon]:fill-zinc-400",
+    "dark:data-hover:bg-white/5 dark:data-hover:*:data-[slot=icon]:fill-zinc-200",
+    "dark:data-active:bg-white/5 dark:data-active:*:data-[slot=icon]:fill-zinc-200",
+    "dark:data-current:*:data-[slot=icon]:fill-zinc-200"
   );
 
   return (
@@ -163,7 +163,7 @@ export const SidebarItem = forwardRef(function SidebarItem(
       {current && (
         <motion.span
           layoutId="current-indicator"
-          className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-zinc-950 dark:bg-white"
+          className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-indigo-300 dark:bg-indigo-300"
         />
       )}
       {"href" in props ? (

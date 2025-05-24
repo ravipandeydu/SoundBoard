@@ -73,7 +73,7 @@ export function SidebarLayout({
   const [showSidebar, setShowSidebar] = useState(false);
 
   return (
-    <div className="relative isolate flex min-h-svh w-full bg-gray-900 text-gray-100">
+    <div className="relative isolate flex min-h-svh w-full">
       {/* Sidebar on desktop */}
       <div className="fixed inset-y-0 left-0 w-64 max-lg:hidden z-30">
         {sidebar}
@@ -86,12 +86,12 @@ export function SidebarLayout({
 
       <div className="flex flex-1 flex-col lg:pl-64">
         {/* Navbar */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8 lg:hidden">
           <div className="lg:hidden">
             <NavbarItem
               onClick={() => setShowSidebar(true)}
               aria-label="Open navigation"
-              className="text-gray-300 hover:text-indigo-400 transition-colors hover:bg-gray-700/50 rounded-lg -ml-2 p-2"
+              className="text-zinc-200 hover:text-violet-300 transition-colors hover:bg-white/5 rounded-lg -ml-2 p-2"
             >
               <OpenMenuIcon />
             </NavbarItem>
@@ -100,11 +100,7 @@ export function SidebarLayout({
         </header>
 
         {/* Content */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-4">
-          <div className="rounded-lg bg-gray-800/50 backdrop-blur-sm shadow-lg ring-1 ring-gray-700 min-h-[calc(100vh-7rem)]">
-            {children}
-          </div>
-        </main>
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-4">{children}</main>
       </div>
     </div>
   );

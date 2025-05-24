@@ -30,8 +30,6 @@ export default async function JamRoom({ params }: { params: { id: string } }) {
     },
   });
 
-  console.log(room, "rrrr");
-
   // 4️⃣ If room doesn't exist → 404
   if (!room || !room.host.name) notFound();
 
@@ -40,7 +38,7 @@ export default async function JamRoom({ params }: { params: { id: string } }) {
 
   // 6️⃣ Render client component with required props
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
+    <div className="min-h-screen">
       <RoomClient
         roomId={room.id}
         userId={userId}
