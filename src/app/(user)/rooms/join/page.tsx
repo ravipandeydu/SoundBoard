@@ -3,8 +3,12 @@ import JoinClient from "./join-client";
 
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <JoinClient />
-    </Suspense>
+    <div className="min-h-screen flex items-center justify-center">
+      <Suspense
+        fallback={<div className="text-zinc-400 animate-pulse">Loading...</div>}
+      >
+        <JoinClient />
+      </Suspense>
+    </div>
   );
 }

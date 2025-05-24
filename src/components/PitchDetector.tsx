@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { MusicalNoteIcon } from "@heroicons/react/24/outline";
 
 interface PitchDetectorProps {
   isRecording: boolean;
@@ -146,17 +147,41 @@ export function PitchDetector({ isRecording, keySig }: PitchDetectorProps) {
   if (!isRecording) return null;
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
-      <CardContent className="p-4">
+    <Card className="group relative overflow-hidden bg-[#12101a] border-white/5 backdrop-blur-xl hover:bg-[#1e1a2e] transition-all duration-300">
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 via-rose-500/5 to-transparent transition-all duration-300" />
+      <div className="absolute -inset-0.5 bg-gradient-to-br from-pink-500/10 via-rose-500/10 to-transparent blur-xl transition-all duration-300" />
+      <CardContent className="relative p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-400">Current Note:</span>
-          <span
-            className={`font-mono text-lg ${
-              isInKey ? "text-green-400" : "text-yellow-400"
-            }`}
-          >
-            {currentNote || "-"}
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-[#2a1f3d]">
+              <div className="w-4 h-4 bg-gradient-to-br from-pink-400 to-rose-400 rounded" />
+            </div>
+            <span className="text-lg font-semibold text-white">
+              Pitch Detection
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                currentNote
+                  ? isInKey
+                    ? "bg-gradient-to-br from-emerald-400 to-teal-400"
+                    : "bg-gradient-to-br from-amber-400 to-orange-400"
+                  : "bg-white/20"
+              }`}
+            />
+            <span
+              className={`font-mono text-xl font-medium transition-colors ${
+                currentNote
+                  ? isInKey
+                    ? "text-emerald-400"
+                    : "text-amber-400"
+                  : "text-zinc-600"
+              }`}
+            >
+              {currentNote || "-"}
+            </span>
+          </div>
         </div>
       </CardContent>
     </Card>

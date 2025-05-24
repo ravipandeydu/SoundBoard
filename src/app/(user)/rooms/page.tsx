@@ -20,7 +20,7 @@ function RoomsSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-40 bg-gray-800/50 animate-pulse rounded-xl border border-gray-700/50"
+          className="h-40 bg-black/40 animate-pulse rounded-xl border border-white/5 backdrop-blur-xl"
         />
       ))}
     </div>
@@ -96,17 +96,22 @@ async function RoomsContent({ userId }: { userId: string }) {
       {/* Hosted */}
       <section className="space-y-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-500/10">
-            <Music2 className="w-6 h-6 text-indigo-400" />
+          <div className="p-2.5 rounded-xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 group-hover:from-violet-500/20 group-hover:to-fuchsia-500/20 transition-all duration-300">
+            <Music2 className="w-6 h-6 text-violet-400" />
           </div>
-          <h2 className="text-2xl font-semibold text-indigo-300">
-            Hosted by You
+          <h2 className="text-2xl font-semibold">
+            <span className="relative">
+              <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
+              <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
+                Hosted by You
+              </span>
+            </span>
           </h2>
         </div>
         {hosted.length === 0 ? (
-          <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700/50">
+          <Card className="bg-black/40 border-white/5 backdrop-blur-xl">
             <CardContent className="p-6">
-              <p className="text-gray-400 text-center">
+              <p className="text-zinc-400 text-center">
                 You haven&apos;t created any rooms yet.
               </p>
             </CardContent>
@@ -123,17 +128,22 @@ async function RoomsContent({ userId }: { userId: string }) {
       {/* Collaborating */}
       <section className="space-y-6 mt-12">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-purple-500/10">
-            <Users2 className="w-6 h-6 text-purple-400" />
+          <div className="p-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500/10 to-pink-500/10 group-hover:from-fuchsia-500/20 group-hover:to-pink-500/20 transition-all duration-300">
+            <Users2 className="w-6 h-6 text-fuchsia-400" />
           </div>
-          <h2 className="text-2xl font-semibold text-purple-300">
-            Collaborating
+          <h2 className="text-2xl font-semibold">
+            <span className="relative">
+              <span className="absolute inset-0 bg-gradient-to-r from-fuchsia-400 via-pink-400 to-rose-400 blur-sm opacity-50"></span>
+              <span className="relative bg-gradient-to-r from-fuchsia-200 via-pink-200 to-rose-200 bg-clip-text text-transparent">
+                Collaborating
+              </span>
+            </span>
           </h2>
         </div>
         {collaborated.length === 0 ? (
-          <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700/50">
+          <Card className="bg-black/40 border-white/5 backdrop-blur-xl">
             <CardContent className="p-6">
-              <p className="text-gray-400 text-center">
+              <p className="text-zinc-400 text-center">
                 Not collaborating in any rooms yet.
               </p>
             </CardContent>
@@ -150,17 +160,22 @@ async function RoomsContent({ userId }: { userId: string }) {
       {/* Public Rooms */}
       <section className="space-y-6 mt-12">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-pink-500/10">
+          <div className="p-2.5 rounded-xl bg-gradient-to-r from-pink-500/10 to-rose-500/10 group-hover:from-pink-500/20 group-hover:to-rose-500/20 transition-all duration-300">
             <Globe className="w-6 h-6 text-pink-400" />
           </div>
-          <h2 className="text-2xl font-semibold text-pink-300">
-            Public Jam Rooms
+          <h2 className="text-2xl font-semibold">
+            <span className="relative">
+              <span className="absolute inset-0 bg-gradient-to-r from-pink-400 via-rose-400 to-red-400 blur-sm opacity-50"></span>
+              <span className="relative bg-gradient-to-r from-pink-200 via-rose-200 to-red-200 bg-clip-text text-transparent">
+                Public Jam Rooms
+              </span>
+            </span>
           </h2>
         </div>
         {publicRooms.length === 0 ? (
-          <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700/50">
+          <Card className="bg-black/40 border-white/5 backdrop-blur-xl">
             <CardContent className="p-6">
-              <p className="text-gray-400 text-center">
+              <p className="text-zinc-400 text-center">
                 No public rooms available.
               </p>
             </CardContent>
@@ -185,14 +200,19 @@ export default async function RoomsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-6 space-y-10">
+    <div className="min-h-screen space-y-10">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-12">
           <div>
-            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 mb-2">
-              Your Jam Rooms
+            <h1 className="text-4xl font-bold">
+              <span className="relative">
+                <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
+                <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
+                  Your Jam Rooms
+                </span>
+              </span>
             </h1>
-            <p className="text-gray-400">
+            <p className="text-zinc-400 mt-2">
               Create, collaborate, and make music together
             </p>
           </div>

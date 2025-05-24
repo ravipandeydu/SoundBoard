@@ -124,10 +124,15 @@ export default function LoopsPage() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-300">
-          My Loops
+        <h1 className="text-2xl font-semibold">
+          <span className="relative">
+            <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
+            <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
+              My Loops
+            </span>
+          </span>
         </h1>
-        <p className="text-gray-400 mt-2">
+        <p className="text-zinc-400 mt-2">
           Manage your recorded loops across all jam rooms
         </p>
       </div>
@@ -135,28 +140,39 @@ export default function LoopsPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
-            <Card key={i} className="bg-gray-800 border-gray-700 animate-pulse">
+            <Card
+              key={i}
+              className="bg-black/40 border-white/5 backdrop-blur-xl animate-pulse"
+            >
               <CardContent className="p-6 space-y-4">
-                <div className="h-6 bg-gray-700 rounded w-2/3" />
-                <div className="h-4 bg-gray-700 rounded w-1/2" />
-                <div className="h-12 bg-gray-700 rounded" />
-                <div className="h-4 bg-gray-700 rounded w-1/3" />
+                <div className="flex items-center gap-4">
+                  <div className="h-6 w-6 bg-white/10 rounded" />
+                  <div>
+                    <div className="h-5 w-32 bg-white/10 rounded mb-2" />
+                    <div className="h-4 w-24 bg-white/10 rounded" />
+                  </div>
+                </div>
+                <div className="h-12 bg-white/10 rounded" />
+                <div className="flex items-center gap-4">
+                  <div className="h-4 w-16 bg-white/10 rounded" />
+                  <div className="h-2 flex-1 bg-white/10 rounded" />
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : loops.length === 0 ? (
-        <Card className="bg-gray-800 border-gray-700">
+        <Card className="bg-black/40 border-white/5 backdrop-blur-xl">
           <CardContent className="p-6">
             <div className="text-center space-y-2">
-              <MusicalNoteIcon className="w-12 h-12 text-gray-500 mx-auto" />
-              <p className="text-gray-400">
+              <MusicalNoteIcon className="w-12 h-12 text-zinc-500 mx-auto" />
+              <p className="text-zinc-400">
                 You haven&apos;t recorded any loops yet. Head to a jam room to
                 start recording!
               </p>
               <Link
                 href="/rooms"
-                className="inline-block mt-4 text-indigo-400 hover:text-indigo-300 transition-colors"
+                className="inline-block mt-4 text-violet-400 hover:text-violet-300 transition-colors"
               >
                 Browse Jam Rooms →
               </Link>
@@ -168,43 +184,49 @@ export default function LoopsPage() {
           {loops.map((loop) => (
             <Card
               key={loop.id}
-              className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-all"
+              className="group relative overflow-hidden bg-black/40 border-white/5 backdrop-blur-xl hover:bg-white/5 transition-all duration-300"
             >
-              <CardHeader className="pb-2">
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/5 group-hover:to-fuchsia-500/5 transition-all duration-300" />
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500/0 to-fuchsia-500/0 group-hover:from-violet-500/10 group-hover:to-fuchsia-500/10 blur-xl transition-all duration-300" />
+              <CardHeader className="pb-2 relative">
                 <CardTitle className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <div className="text-lg text-indigo-300">{loop.name}</div>
+                    <div className="font-medium text-violet-300 group-hover:text-violet-200 transition-colors">
+                      {loop.name}
+                    </div>
                     <Link
                       href={`/rooms/${loop.room.id}`}
-                      className="text-sm text-gray-400 hover:text-indigo-400 transition-colors"
+                      className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors"
                     >
                       {loop.room.title}
                     </Link>
                   </div>
                   <button
                     onClick={() => togglePlay(loop)}
-                    className="p-2 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
+                    className="p-2 bg-black/40 hover:bg-white/5 border border-white/10 rounded-full transition-all"
                   >
                     {playingId === loop.id ? (
-                      <PauseIcon className="w-5 h-5 text-indigo-400" />
+                      <PauseIcon className="w-5 h-5 text-violet-400" />
                     ) : (
-                      <PlayIcon className="w-5 h-5 text-indigo-400" />
+                      <PlayIcon className="w-5 h-5 text-violet-400" />
                     )}
                   </button>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 relative">
                 {/* Progress bar */}
-                <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1 bg-black/40 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-indigo-500 transition-all duration-100"
+                    className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-100"
                     style={{ width: `${(progress[loop.id] || 0) * 100}%` }}
                   />
                 </div>
 
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 flex-1">
-                    <span className="text-sm text-gray-400">Volume</span>
+                    <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">
+                      Volume
+                    </span>
                     <Slider
                       min={0}
                       max={1}
@@ -222,7 +244,7 @@ export default function LoopsPage() {
                           onCheckedChange={(enabled) =>
                             setEnabled(loop, enabled)
                           }
-                          className="data-[state=checked]:bg-indigo-600"
+                          className="data-[state=checked]:bg-violet-500"
                         />
                       </TooltipTrigger>
                       <TooltipContent>
