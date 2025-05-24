@@ -29,7 +29,7 @@ import {
 } from "@/components/common/sidebar";
 import { SidebarLayout } from "@/components/common/sidebar-layout";
 import {
-  Cog8ToothIcon,
+  // Cog8ToothIcon,
   Square2StackIcon,
   UserIcon,
   HomeIcon,
@@ -139,7 +139,7 @@ export default function UserLayout({
                   className="min-w-64 bg-black/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-lg"
                   anchor="bottom end"
                 >
-                  <DropdownItem
+                  {/* <DropdownItem
                     href="/my-profile"
                     className="text-zinc-200 hover:bg-white/5 hover:text-violet-300 rounded-md transition-all duration-200"
                   >
@@ -152,7 +152,7 @@ export default function UserLayout({
                   >
                     <Cog8ToothIcon className="h-5 w-5" />
                     <DropdownLabel>Settings</DropdownLabel>
-                  </DropdownItem>
+                  </DropdownItem> */}
                   <DropdownDivider className="border-white/5" />
                   <LogoutButton />
                 </DropdownMenu>
