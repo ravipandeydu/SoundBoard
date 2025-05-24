@@ -69,10 +69,10 @@ export default async function LandingPage() {
                   </Button>
                 </Link>
                 <Link
-                  href="/demo"
+                  href="/signup"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
-                  Watch Demo →
+                  Start Your Free Trial →
                 </Link>
               </div>
 

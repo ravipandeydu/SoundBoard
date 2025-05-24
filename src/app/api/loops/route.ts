@@ -37,6 +37,26 @@ export async function POST(req: NextRequest) {
   const order = Number(fd.get("order") ?? 0);
 
   try {
+    // Check if the room exists and if the user has permission to create loops
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: { hostId: true, isPublic: true },
+    });
+
+    if (!room) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
+
+    // Only allow loop creation if:
+    // 1. User is the host, or
+    // 2. Room is public
+    if (room.hostId !== session.user.id && !room.isPublic) {
+      return NextResponse.json(
+        { error: "You don't have permission to create loops in this room" },
+        { status: 403 }
+      );
+    }
+
     // Run file upload and database operation in parallel
     const [url, loop] = await Promise.all([
       uploadBlob(file),
