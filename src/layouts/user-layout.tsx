@@ -59,14 +59,14 @@ const SidebarMenuItem = ({
     <SidebarItem
       href={href}
       className={cn(
-        "group relative gap-3 px-4 py-3 text-gray-300 rounded-lg transition-all duration-300",
-        "hover:bg-gray-700/30 hover:text-indigo-400",
+        "group relative gap-3 px-4 py-3 text-zinc-200 rounded-lg transition-all duration-300",
+        "hover:bg-gray-700/30 hover:text-indigo-300",
         "before:absolute before:inset-0 before:rounded-lg before:transition-all before:duration-300",
         "hover:before:bg-gradient-to-r hover:before:from-indigo-500/10 hover:before:to-purple-500/10",
         isActive && [
-          "text-indigo-400",
+          "text-indigo-300",
           "bg-gradient-to-r from-indigo-500/10 to-purple-500/10",
-          "before:border-l-2 before:border-indigo-400",
+          "before:border-l-2 before:border-indigo-300",
         ]
       )}
     >
@@ -83,15 +83,15 @@ const SidebarMenuItem = ({
           <Icon
             className={cn(
               "h-5 w-5 transition-all duration-300",
-              isActive ? "text-indigo-400" : "text-gray-300",
-              "group-hover:text-indigo-400"
+              isActive ? "text-indigo-300" : "text-zinc-300",
+              "group-hover:text-indigo-300"
             )}
           />
         </div>
         <SidebarLabel className="font-medium">{label}</SidebarLabel>
       </div>
       {isActive && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-400" />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-300" />
       )}
     </SidebarItem>
   );
@@ -113,7 +113,7 @@ export default function UserLayout({
           <NavbarSection>
             <NavbarItem
               href="/"
-              className="text-gray-300 hover:text-indigo-400 transition-colors hidden lg:flex"
+              className="text-zinc-200 hover:text-indigo-300 transition-colors hidden lg:flex"
             >
               <HomeIcon className="h-5 w-5" />
             </NavbarItem>
@@ -122,7 +122,7 @@ export default function UserLayout({
                 <Avatar
                   src={session?.user?.image || "/profile-photo.jpg"}
                   square
-                  className="ring-2 ring-indigo-500/50 h-8 w-8"
+                  className="ring-2 ring-indigo-400/50 h-8 w-8"
                 />
               </DropdownButton>
               <DropdownMenu
@@ -131,14 +131,14 @@ export default function UserLayout({
               >
                 <DropdownItem
                   href="/my-profile"
-                  className="text-gray-300 hover:bg-gray-700/50 hover:text-indigo-400"
+                  className="text-zinc-200 hover:bg-gray-700/50 hover:text-indigo-300"
                 >
                   <UserIcon className="h-5 w-5" />
                   <DropdownLabel>My Profile</DropdownLabel>
                 </DropdownItem>
                 <DropdownItem
                   href="/settings"
-                  className="text-gray-300 hover:bg-gray-700/50 hover:text-indigo-400"
+                  className="text-zinc-200 hover:bg-gray-700/50 hover:text-indigo-300"
                 >
                   <Cog8ToothIcon className="h-5 w-5" />
                   <DropdownLabel>Settings</DropdownLabel>
@@ -158,10 +158,10 @@ export default function UserLayout({
               className="items-center gap-3 px-4 py-5 hover:bg-gray-700/30 transition-all duration-200"
             >
               <div className="relative">
-                <MusicalNoteIcon className="h-8 w-8 text-indigo-400 animate-pulse" />
+                <MusicalNoteIcon className="h-8 w-8 text-indigo-300 animate-pulse" />
                 <div className="absolute inset-0 bg-indigo-400/20 blur-xl rounded-full"></div>
               </div>
-              <SidebarLabel className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+              <SidebarLabel className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
                 SoundBoard
               </SidebarLabel>
             </SidebarItem>

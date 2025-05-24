@@ -132,10 +132,10 @@ export default function AuthPage({ variant }: { variant: "login" | "signup" }) {
 
           <div className="relative p-8">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-purple-300">
                 {variant === "login" ? "Welcome Back" : "Create Account"}
               </h1>
-              <p className="mt-2 text-gray-400">
+              <p className="mt-2 text-zinc-300">
                 {variant === "login"
                   ? "Sign in to continue to your account"
                   : "Sign up to start creating music"}
