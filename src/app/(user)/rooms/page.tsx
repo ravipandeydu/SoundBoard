@@ -201,11 +201,11 @@ export default async function RoomsPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-10">
+    <div className="sm:p-6 space-y-10">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-8 sm:mb-12">
           <div>
-            <h1 className="text-4xl font-bold">
+            <h1 className="text-3xl sm:text-4xl font-bold">
               <span className="relative">
                 <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 blur-sm opacity-50"></span>
                 <span className="relative bg-gradient-to-r from-violet-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent">
@@ -217,7 +217,7 @@ export default async function RoomsPage() {
               Create, collaborate, and make music together
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 w-full sm:w-auto">
             <CreateRoom />
             <JoinRoomButton />
           </div>
