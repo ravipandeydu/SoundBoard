@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface Props {
   roomId: string;
@@ -13,15 +14,22 @@ export default function PublicToggle({ roomId, initialIsPublic }: Props) {
   const router = useRouter();
 
   const toggle = async () => {
-    const res = await fetch(`/api/rooms/${roomId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isPublic: !isPublic }),
-    });
-    if (res.ok) {
-      setIsPublic(!isPublic);
-      // re-fetch server data (e.g. your publicRooms list)
-      router.refresh();
+    try {
+      const res = await fetch(`/api/rooms/${roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !isPublic }),
+      });
+      if (res.ok) {
+        setIsPublic(!isPublic);
+        toast.success(`Room is now ${!isPublic ? "public" : "private"}`);
+        router.refresh();
+      } else {
+        throw new Error("Failed to update room visibility");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update room visibility");
     }
   };
 

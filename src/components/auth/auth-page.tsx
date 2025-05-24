@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -41,43 +41,87 @@ export default function AuthPage({ variant }: { variant: "login" | "signup" }) {
     defaultValues: { email: "", password: "" },
   });
 
-  async function onSubmit(values: FormValues) {
-    if (isLoading) return;
+  // Reset loading state if component unmounts
+  useEffect(() => {
+    return () => {
+      setIsLoading(false);
+    };
+  }, []);
 
-    setIsLoading(true);
-    setError(null);
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (isLoading) {
+      timeoutId = setTimeout(() => {
+        setIsLoading(false);
+        setError("Request timed out. Please try again.");
+      }, 10000); // 10 second timeout
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isLoading]);
 
-    try {
-      const authRes = await signIn("credentials", {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-        callbackUrl,
-      });
+  const handleNavigation = useCallback(
+    async (url: string) => {
+      try {
+        // Prefetch the next page
+        await router.prefetch(url);
 
-      if (authRes?.error) {
-        setError(
-          authRes.error === "CredentialsSignin"
-            ? "Invalid email or password"
-            : authRes.error
-        );
-      } else if (authRes?.url) {
-        // Prefetch the next page before navigation
-        await router.prefetch(authRes.url);
+        // Add a small delay to ensure prefetch completes
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
-        try {
-          await router.push(authRes.url);
-          router.refresh();
-        } catch {
-          setError("Navigation failed. Please try again.");
+        // Attempt navigation
+        await router.push(url);
+
+        // If navigation is successful, refresh the router
+        router.refresh();
+      } catch (e) {
+        console.error("Navigation error:", e);
+        setError("Navigation failed. Please try again.");
+        setIsLoading(false);
+      }
+    },
+    [router]
+  );
+
+  const onSubmit = useCallback(
+    async (values: FormValues) => {
+      if (isLoading) return;
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const authRes = await signIn("credentials", {
+          email: values.email,
+          password: values.password,
+          redirect: false,
+          callbackUrl,
+        });
+
+        if (authRes?.error) {
+          setError(
+            authRes.error === "CredentialsSignin"
+              ? "Invalid email or password"
+              : authRes.error
+          );
+          setIsLoading(false);
+        } else if (authRes?.url) {
+          await handleNavigation(authRes.url);
+        } else {
+          // Handle unexpected response
+          setError("Unexpected response. Please try again.");
           setIsLoading(false);
         }
+      } catch (e) {
+        console.error("Auth error:", e);
+        setError("An unexpected error occurred. Please try again.");
+        setIsLoading(false);
       }
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
-      setIsLoading(false);
-    }
-  }
+    },
+    [isLoading, callbackUrl, handleNavigation]
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 px-4">

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export default function JoinClient() {
   const router = useRouter();
@@ -18,8 +19,18 @@ export default function JoinClient() {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.roomId) router.replace(`/rooms/${data.roomId}`);
-        else router.replace("/");
+        if (data.roomId) {
+          toast.success("Successfully joined the room!");
+          router.replace(`/rooms/${data.roomId}`);
+        } else {
+          toast.error("Failed to join room");
+          router.replace("/");
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error("Failed to join room");
+        router.replace("/");
       });
   }, [token, router]);
 

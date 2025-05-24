@@ -29,7 +29,10 @@ export async function POST(req: NextRequest) {
     await prisma.user.create({
       data: { email, password: hashed, name },
     });
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return NextResponse.json(
+      { success: true, message: "Account created successfully" },
+      { status: 201 }
+    );
   } catch (err: any) {
     // Log everything so you can inspect err.code / err.meta / err.message
     console.error("Signup error:", {
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
       message: err.message,
     });
 
-    // 4) Handle Prisma unique-constraint (P2002) or generic “unique constraint failed” text
+    // 4) Handle Prisma unique-constraint (P2002) or generic "unique constraint failed" text
     if (
       err.code === "P2002" ||
       (typeof err.message === "string" &&

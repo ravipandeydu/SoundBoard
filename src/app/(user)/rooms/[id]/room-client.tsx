@@ -19,6 +19,11 @@ import {
 import { Metronome } from "@/components/Metronome";
 import { KeySignatureHelper } from "@/components/KeySignatureHelper";
 import { PitchDetector } from "@/components/PitchDetector";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -51,6 +56,73 @@ interface RoomMeta {
   isPublic: boolean;
 }
 
+// Loading skeleton for loops
+function LoopSkeleton() {
+  return (
+    <Card className="bg-gray-800 border-gray-700 animate-pulse">
+      <CardContent className="p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-gray-700 rounded" />
+                  <div className="h-4 w-32 bg-gray-700 rounded" />
+                  <div className="h-4 w-24 bg-gray-700 rounded" />
+                </div>
+                <div className="h-3 w-24 bg-gray-700 rounded mt-2" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="h-6 w-12 bg-gray-700 rounded" />
+              <div className="h-6 w-10 bg-gray-700 rounded" />
+            </div>
+          </div>
+          <div className="h-12 bg-gray-700 rounded" />
+          <div className="flex items-center gap-4">
+            <div className="h-4 w-16 bg-gray-700 rounded" />
+            <div className="h-2 flex-1 bg-gray-700 rounded" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Error display component
+function ErrorDisplay({ message }: { message: string }) {
+  return (
+    <div className="p-6 rounded-lg bg-red-500/10 border border-red-500/20">
+      <p className="text-red-400 text-center">{message}</p>
+      <Button
+        onClick={() => window.location.reload()}
+        variant="outline"
+        className="mt-4 mx-auto block border-red-500/50 text-red-400 hover:bg-red-500/10"
+      >
+        Try Again
+      </Button>
+    </div>
+  );
+}
+
+// Wrap button with tooltip helper
+function TooltipButton({
+  tooltip,
+  children,
+  ...props
+}: { tooltip: string } & React.ComponentPropsWithoutRef<typeof Button>) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button {...props}>{children}</Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{tooltip}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export default function RoomClient({
   roomId,
   userId,
@@ -61,15 +133,25 @@ export default function RoomClient({
   bpm,
   keySig,
 }: RoomClientProps) {
-  const { data: loops, mutate: mutateLoops } = useSWR<Loop[]>(
-    `/api/loops?roomId=${roomId}`,
-    fetcher,
-    { refreshInterval: 5000, revalidateOnFocus: false }
-  );
-  const { data: roomMeta, mutate: mutateRoomMeta } = useSWR<RoomMeta>(
-    `/api/rooms/${roomId}`,
-    fetcher
-  );
+  const {
+    data: loops,
+    mutate: mutateLoops,
+    error: loopsError,
+    isLoading: isLoopsLoading,
+  } = useSWR<Loop[]>(`/api/loops?roomId=${roomId}`, fetcher, {
+    refreshInterval: 5000,
+    revalidateOnFocus: false,
+    errorRetryCount: 3,
+  });
+
+  const {
+    data: roomMeta,
+    mutate: mutateRoomMeta,
+    error: roomMetaError,
+    isLoading: isRoomMetaLoading,
+  } = useSWR<RoomMeta>(`/api/rooms/${roomId}`, fetcher, {
+    errorRetryCount: 3,
+  });
 
   const isHost = hostId === userId;
   const isPublic = roomMeta?.isPublic;
@@ -78,28 +160,8 @@ export default function RoomClient({
   const recordingTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isReordering, setIsReordering] = useState(false);
   const [reorderLoading, setReorderLoading] = useState(false);
-
-  // Add new state for tempo matching
   const [tempoMatchEnabled, setTempoMatchEnabled] = useState(false);
-
-  const toggleRoomPublic = async () => {
-    if (!roomMeta) return;
-    try {
-      const res = await fetch(`/api/rooms/${roomId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPublic: !roomMeta.isPublic }),
-      });
-      if (res.ok) {
-        mutateRoomMeta({ isPublic: !roomMeta.isPublic }, false);
-        toast.success(
-          `Room is now ${!roomMeta.isPublic ? "public" : "private"}`
-        );
-      }
-    } catch {
-      toast.error("Failed to update room visibility");
-    }
-  };
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 
   const [recording, setRecording] = useState(false);
   const recRef = useRef<MediaRecorder | null>(null);
@@ -249,7 +311,16 @@ export default function RoomClient({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled, volume: prev[id].volume }),
-        });
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to toggle loop");
+            toast.success(`Loop ${enabled ? "enabled" : "disabled"}`);
+          })
+          .catch(() => {
+            toast.error("Failed to toggle loop");
+            // Revert the toggle if the API call fails
+            return prev;
+          });
         return { ...prev, [id]: { enabled, volume: prev[id].volume } };
       });
     } catch {
@@ -260,11 +331,25 @@ export default function RoomClient({
   const changeVolume = async (id: string, volume: number) => {
     try {
       setSettings((prev) => {
+        const audio = audioRefs.current[id];
+        if (audio) audio.volume = volume;
+
         fetch(`/api/loops/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled: prev[id].enabled, volume }),
-        });
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to update volume");
+            toast.success("Volume updated");
+          })
+          .catch(() => {
+            // Revert the volume if the API call fails
+            if (audio) audio.volume = prev[id].volume;
+            toast.error("Failed to update volume");
+            return prev;
+          });
+
         return { ...prev, [id]: { enabled: prev[id].enabled, volume } };
       });
     } catch {
@@ -300,7 +385,7 @@ export default function RoomClient({
         const prevOrder = prevLoop.order;
         const currentOrder = currentLoop.order;
 
-        await Promise.all([
+        const responses = await Promise.all([
           fetch(`/api/loops/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -313,7 +398,12 @@ export default function RoomClient({
           }),
         ]);
 
-        mutateLoops();
+        if (responses.every((res) => res.ok)) {
+          toast.success(`Moved "${currentLoop.name}" up`);
+          mutateLoops();
+        } else {
+          throw new Error("Failed to reorder tracks");
+        }
       } else if (
         direction === "down" &&
         currentIndex < sortedLoops.length - 1
@@ -322,7 +412,7 @@ export default function RoomClient({
         const nextOrder = nextLoop.order;
         const currentOrder = currentLoop.order;
 
-        await Promise.all([
+        const responses = await Promise.all([
           fetch(`/api/loops/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -335,7 +425,12 @@ export default function RoomClient({
           }),
         ]);
 
-        mutateLoops();
+        if (responses.every((res) => res.ok)) {
+          toast.success(`Moved "${currentLoop.name}" down`);
+          mutateLoops();
+        } else {
+          throw new Error("Failed to reorder tracks");
+        }
       }
     } catch {
       toast.error("Failed to reorder tracks");
@@ -445,6 +540,60 @@ export default function RoomClient({
 
   const sortedLoops = loops?.sort((a, b) => a.order - b.order) ?? [];
 
+  const toggleRoomPublic = async () => {
+    if (!roomMeta || isUpdatingVisibility) return;
+
+    setIsUpdatingVisibility(true);
+    try {
+      const res = await fetch(`/api/rooms/${roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !roomMeta.isPublic }),
+      });
+      if (res.ok) {
+        mutateRoomMeta({ isPublic: !roomMeta.isPublic }, false);
+        toast.success(
+          `Room is now ${!roomMeta.isPublic ? "public" : "private"}`
+        );
+      } else {
+        throw new Error("Failed to update room visibility");
+      }
+    } catch {
+      toast.error("Failed to update room visibility");
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  };
+
+  // If both data fetching operations have errors, show error state
+  if (loopsError && roomMetaError) {
+    return (
+      <ErrorDisplay message="Failed to load room data. Please try again later." />
+    );
+  }
+
+  // Show loading state while initial data is being fetched
+  if ((isLoopsLoading || isRoomMetaLoading) && !loops && !roomMeta) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
+        <div className="animate-pulse">
+          <div className="h-8 w-64 bg-gray-700 rounded mb-4" />
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-32 bg-gray-700 rounded" />
+            <div className="h-4 w-4 bg-gray-700 rounded" />
+            <div className="h-4 w-24 bg-gray-700 rounded" />
+          </div>
+        </div>
+
+        <div className="grid gap-6">
+          {[1, 2, 3].map((i) => (
+            <LoopSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
       {/* Header */}
@@ -470,17 +619,24 @@ export default function RoomClient({
                   <span className="font-mono bg-gray-800 px-2 py-1 rounded text-indigo-300">
                     {code}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(code);
-                      toast.success("Room code copied to clipboard!");
-                    }}
-                    className="text-gray-400 hover:text-indigo-300"
-                  >
-                    <ClipboardIcon className="w-4 h-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(code);
+                          toast.success("Room code copied to clipboard!");
+                        }}
+                        className="text-gray-400 hover:text-indigo-300"
+                      >
+                        <ClipboardIcon className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy room code</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </>
             )}
@@ -490,13 +646,53 @@ export default function RoomClient({
         <div className="flex items-center gap-4">
           {isHost && roomMeta && (
             <div className="flex items-center gap-3">
-              <Switch
-                checked={isPublic}
-                onCheckedChange={toggleRoomPublic}
-                className="data-[state=checked]:bg-indigo-600"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Switch
+                    checked={isPublic}
+                    onCheckedChange={toggleRoomPublic}
+                    disabled={isUpdatingVisibility}
+                    className={`${isPublic ? "bg-indigo-600" : "bg-gray-700"} ${
+                      isUpdatingVisibility
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Make room {isPublic ? "private" : "public"}</p>
+                </TooltipContent>
+              </Tooltip>
               <span className="text-sm font-medium text-gray-300">
-                {isPublic ? "Public Room" : "Private Room"}
+                {isUpdatingVisibility ? (
+                  <span className="inline-flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Updating...
+                  </span>
+                ) : isPublic ? (
+                  "Public Room"
+                ) : (
+                  "Private Room"
+                )}
               </span>
             </div>
           )}
@@ -510,11 +706,20 @@ export default function RoomClient({
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Metronome bpm={bpm} />
-            <Switch
-              checked={tempoMatchEnabled}
-              onCheckedChange={setTempoMatchEnabled}
-              className="data-[state=checked]:bg-indigo-600"
-            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Switch
+                  checked={tempoMatchEnabled}
+                  onCheckedChange={setTempoMatchEnabled}
+                  className={`${
+                    tempoMatchEnabled ? "bg-indigo-600" : "bg-gray-700"
+                  }`}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Match recording to tempo</p>
+              </TooltipContent>
+            </Tooltip>
             <span className="text-sm text-gray-400">Tempo Match</span>
           </div>
           <PitchDetector isRecording={recording} keySig={keySig} />
@@ -532,7 +737,8 @@ export default function RoomClient({
             className="max-w-xs bg-gray-800 border-gray-700 text-gray-100"
             disabled={recording}
           />
-          <Button
+          <TooltipButton
+            tooltip={recording ? "Stop recording" : "Start recording"}
             onClick={recording ? stopRec : startRec}
             className={`${
               recording
@@ -542,8 +748,9 @@ export default function RoomClient({
           >
             <MicrophoneIcon className="w-5 h-5" />
             {recording ? `Stop (${30 - recordingTime}s)` : "Start Recording"}
-          </Button>
-          <Button
+          </TooltipButton>
+          <TooltipButton
+            tooltip="Export all enabled tracks as a single audio file"
             disabled={mixing}
             onClick={exportMixdown}
             variant="outline"
@@ -551,9 +758,12 @@ export default function RoomClient({
           >
             <ArrowDownTrayIcon className="w-5 h-5" />
             {mixing ? "Mixing…" : "Export Mixdown"}
-          </Button>
+          </TooltipButton>
           {sortedLoops.length > 0 && (
-            <Button
+            <TooltipButton
+              tooltip={
+                isReordering ? "Finish reordering" : "Change track order"
+              }
               variant="outline"
               onClick={() => setIsReordering(!isReordering)}
               className={`border-gray-600 text-gray-400 hover:bg-gray-800 gap-2 ${
@@ -562,7 +772,7 @@ export default function RoomClient({
             >
               <ArrowsUpDownIcon className="w-5 h-5" />
               {isReordering ? "Done Reordering" : "Reorder Tracks"}
-            </Button>
+            </TooltipButton>
           )}
         </div>
 
@@ -585,112 +795,14 @@ export default function RoomClient({
 
       {/* Loops */}
       <div className="grid gap-6">
-        {sortedLoops.map((l) => {
-          const setting = settings[l.id] || { enabled: true, volume: 1 };
-          const time = new Date(l.createdAt).toLocaleString();
-          return (
-            <Card
-              key={l.id}
-              className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-all"
-            >
-              <CardContent className="p-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-4">
-                      {isReordering && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => reorderLoop(l.id, "up")}
-                            disabled={l.order === 0 || reorderLoading}
-                            className="px-2 hover:bg-gray-700"
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => reorderLoop(l.id, "down")}
-                            disabled={
-                              l.order === sortedLoops.length - 1 ||
-                              reorderLoading
-                            }
-                            className="px-2 hover:bg-gray-700"
-                          >
-                            ↓
-                          </Button>
-                        </div>
-                      )}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <MusicalNoteIcon className="w-5 h-5 text-indigo-400" />
-                          <span className="text-gray-300 font-medium">
-                            {l.name || l.user.name}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            by {l.user.name}
-                          </span>
-                        </div>
-                        <time
-                          dateTime={l.createdAt}
-                          className="text-sm text-gray-500 mt-1 block"
-                        >
-                          {time}
-                        </time>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400">Enable</span>
-                      <Switch
-                        checked={setting.enabled}
-                        onCheckedChange={() => toggleLoop(l.id)}
-                        className="data-[state=checked]:bg-indigo-600"
-                      />
-                      {(isHost || l.user.id === userId) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteLoop(l.id)}
-                          className="text-gray-400 hover:text-red-400 hover:bg-gray-700"
-                        >
-                          <XMarkIcon className="w-5 h-5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <audio
-                    src={l.url}
-                    controls
-                    muted={!setting.enabled}
-                    ref={(el) => {
-                      audioRefs.current[l.id] = el;
-                      if (el) el.volume = setting.volume;
-                    }}
-                    className="w-full rounded bg-gray-700"
-                  />
-
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-400 min-w-[4rem]">
-                      Volume
-                    </span>
-                    <Slider
-                      value={[setting.volume]}
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      onValueChange={([value]) => changeVolume(l.id, value)}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-
-        {sortedLoops.length === 0 && (
+        {isLoopsLoading && !loops ? (
+          // Show loading skeletons while refreshing data
+          [1, 2, 3].map((i) => <LoopSkeleton key={i} />)
+        ) : loopsError ? (
+          // Show error state for loops
+          <ErrorDisplay message="Failed to load loops. Please try again later." />
+        ) : sortedLoops.length === 0 ? (
+          // Show empty state
           <Card className="bg-gray-800 border-gray-700">
             <CardContent className="p-6 text-center">
               <p className="text-gray-400">
@@ -698,6 +810,158 @@ export default function RoomClient({
               </p>
             </CardContent>
           </Card>
+        ) : (
+          // Show actual loops
+          sortedLoops.map((l) => {
+            const setting = settings[l.id] || { enabled: true, volume: 1 };
+            const time = new Date(l.createdAt).toLocaleString();
+            return (
+              <Card
+                key={l.id}
+                className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-all"
+              >
+                <CardContent className="p-6">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-4">
+                        {isReordering && (
+                          <div className="flex gap-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => reorderLoop(l.id, "up")}
+                                  disabled={l.order === 0 || reorderLoading}
+                                  className="px-2 hover:bg-gray-700"
+                                >
+                                  ↑
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Move track up</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => reorderLoop(l.id, "down")}
+                                  disabled={
+                                    l.order === sortedLoops.length - 1 ||
+                                    reorderLoading
+                                  }
+                                  className="px-2 hover:bg-gray-700"
+                                >
+                                  ↓
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Move track down</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <MusicalNoteIcon className="w-5 h-5 text-indigo-400" />
+                            <span className="text-gray-300 font-medium">
+                              {l.name || l.user.name}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              by {l.user.name}
+                            </span>
+                          </div>
+                          <time
+                            dateTime={l.createdAt}
+                            className="text-sm text-gray-500 mt-1 block"
+                          >
+                            {time}
+                          </time>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-400">Enable</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Switch
+                              checked={setting.enabled}
+                              onCheckedChange={() => toggleLoop(l.id)}
+                              className={`${
+                                setting.enabled
+                                  ? "bg-indigo-600"
+                                  : "bg-gray-700"
+                              }`}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {setting.enabled ? "Disable" : "Enable"} track
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                        {(isHost || l.user.id === userId) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteLoop(l.id)}
+                                className="text-gray-400 hover:text-red-400 hover:bg-gray-700"
+                              >
+                                <XMarkIcon className="w-5 h-5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete track</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </div>
+
+                    <audio
+                      src={l.url}
+                      controls
+                      muted={!setting.enabled}
+                      ref={(el) => {
+                        audioRefs.current[l.id] = el;
+                        if (el) el.volume = setting.volume;
+                      }}
+                      className="w-full rounded bg-gray-700"
+                    />
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-gray-400 min-w-[4rem]">
+                            Volume
+                          </span>
+                          <Slider
+                            value={[setting.volume]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            onValueChange={([value]) =>
+                              changeVolume(l.id, value)
+                            }
+                            className="flex-1"
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Adjust track volume:{" "}
+                          {Math.round(setting.volume * 100)}%
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>
