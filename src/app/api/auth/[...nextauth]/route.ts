@@ -1,5 +1,6 @@
 // app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth/next";
+import type { AuthOptions } from "next-auth";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import GithubProvider from "next-auth/providers/github";
@@ -23,7 +24,7 @@ declare module "next-auth" {
 /** ----------------------------------------------------------------
  *  1. Auth configuration object – exported so others can import it
  * ----------------------------------------------------------------*/
-export const authOptions = {
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   pages: {
     signIn: "/login",
@@ -98,7 +99,7 @@ export const authOptions = {
     },
     async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
-        session.user.id = token.sub as string;
+        session.user.id = token.id as string;
         session.user.email = token.email as string;
         session.user.name = token.name as string;
       }

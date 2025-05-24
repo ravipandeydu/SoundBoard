@@ -8,7 +8,7 @@ import { Music2, Clock, Hash } from "lucide-react";
 interface Room {
   id: string;
   title: string;
-  createdAt: Date;
+  createdAt: string;
   bpm: number;
   keySig: string | null;
   hostId: string;
@@ -22,6 +22,9 @@ export function RoomCard({
   room: Room;
   isHosted?: boolean;
 }) {
+  // Parse the date string to a Date object
+  const createdAtDate = new Date(room.createdAt);
+
   return (
     <Card className="group relative overflow-hidden bg-gray-800/50 backdrop-blur-sm border-gray-700/50 hover:bg-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-purple-600/5 group-hover:from-indigo-600/10 group-hover:to-purple-600/10 transition-all duration-300" />
@@ -34,8 +37,8 @@ export function RoomCard({
               </CardTitle>
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <Clock className="w-4 h-4" />
-                <time dateTime={room.createdAt.toISOString()}>
-                  {room.createdAt.toLocaleDateString()}
+                <time dateTime={createdAtDate.toISOString()}>
+                  {createdAtDate.toLocaleDateString()}
                 </time>
               </div>
             </div>

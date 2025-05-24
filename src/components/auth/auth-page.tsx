@@ -42,30 +42,39 @@ export default function AuthPage({ variant }: { variant: "login" | "signup" }) {
   });
 
   async function onSubmit(values: FormValues) {
+    if (isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await signIn("credentials", {
+      const authRes = await signIn("credentials", {
         email: values.email,
         password: values.password,
         redirect: false,
         callbackUrl,
       });
 
-      if (res?.error) {
+      if (authRes?.error) {
         setError(
-          res.error === "CredentialsSignin"
+          authRes.error === "CredentialsSignin"
             ? "Invalid email or password"
-            : res.error
+            : authRes.error
         );
-      } else if (res?.url) {
-        router.push(res.url);
-        router.refresh();
+      } else if (authRes?.url) {
+        // Prefetch the next page before navigation
+        await router.prefetch(authRes.url);
+
+        try {
+          await router.push(authRes.url);
+          router.refresh();
+        } catch {
+          setError("Navigation failed. Please try again.");
+          setIsLoading(false);
+        }
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   }

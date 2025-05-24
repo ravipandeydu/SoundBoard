@@ -8,6 +8,10 @@ import { Music2, Users2, Globe } from "lucide-react";
 import type { Session } from "next-auth";
 import { RoomCard } from "@/components/room-card";
 import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
+
+// Cache duration in seconds
+const CACHE_DURATION = 60;
 
 // Loading skeleton component
 function RoomsSkeleton() {
@@ -23,42 +27,66 @@ function RoomsSkeleton() {
   );
 }
 
+// Cache the room fetching
+const getRooms = unstable_cache(
+  async (userId: string) => {
+    const [rooms, allPublic] = await Promise.all([
+      prisma.room.findMany({
+        where: {
+          OR: [{ hostId: userId }, { loops: { some: { userId } } }],
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          bpm: true,
+          keySig: true,
+          hostId: true,
+          isPublic: true,
+        },
+        take: 10,
+      }),
+      prisma.room.findMany({
+        where: { isPublic: true },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          bpm: true,
+          keySig: true,
+          hostId: true,
+        },
+        take: 10,
+      }),
+    ]);
+
+    // Convert dates to ISO strings
+    const serializedRooms = rooms.map((room) => ({
+      ...room,
+      createdAt: room.createdAt.toISOString(),
+    }));
+
+    const serializedPublicRooms = allPublic.map((room) => ({
+      ...room,
+      createdAt: room.createdAt.toISOString(),
+    }));
+
+    return {
+      rooms: serializedRooms,
+      publicRooms: serializedPublicRooms.filter(
+        (r) => !serializedRooms.some((ur) => ur.id === r.id)
+      ),
+    };
+  },
+  ["rooms"],
+  { revalidate: CACHE_DURATION }
+);
+
 // Async component to fetch and display rooms
 async function RoomsContent({ userId }: { userId: string }) {
-  // Optimize query by including only necessary fields and using Promise.all
-  const [rooms, allPublic] = await Promise.all([
-    prisma.room.findMany({
-      where: {
-        OR: [{ hostId: userId }, { loops: { some: { userId } } }],
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-        bpm: true,
-        keySig: true,
-        hostId: true,
-        isPublic: true,
-      },
-    }),
-    prisma.room.findMany({
-      where: { isPublic: true },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-        bpm: true,
-        keySig: true,
-        hostId: true,
-      },
-    }),
-  ]);
-
-  const publicRooms = allPublic.filter(
-    (r) => !rooms.some((ur) => ur.id === r.id)
-  );
+  const { rooms, publicRooms } = await getRooms(userId);
 
   const hosted = rooms.filter((r) => r.hostId === userId);
   const collaborated = rooms.filter((r) => r.hostId !== userId);
@@ -150,7 +178,7 @@ async function RoomsContent({ userId }: { userId: string }) {
 }
 
 export default async function RoomsPage() {
-  const session = (await getServerSession(authOptions)) as Session | null;
+  const session = (await getServerSession(authOptions)) as Session;
 
   if (!session?.user?.id) {
     redirect("/login");
@@ -159,7 +187,6 @@ export default async function RoomsPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-6 space-y-10">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex justify-between items-center mb-12">
           <div>
             <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 mb-2">
@@ -172,7 +199,6 @@ export default async function RoomsPage() {
           <CreateRoom />
         </div>
 
-        {/* Content with loading state */}
         <Suspense fallback={<RoomsSkeleton />}>
           <RoomsContent userId={session.user.id} />
         </Suspense>
