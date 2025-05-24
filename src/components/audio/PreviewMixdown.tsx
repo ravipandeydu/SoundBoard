@@ -164,6 +164,7 @@ export function PreviewMixdown({
       try {
         source.stop();
       } catch (e) {
+        console.error("Error stopping playback:", e);
         // Ignore errors if source was already stopped
       }
     });

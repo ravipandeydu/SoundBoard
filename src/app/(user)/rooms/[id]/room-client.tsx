@@ -1,6 +1,6 @@
 "use client";
 import useSWR from "swr";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { InviteModal } from "@/components/invite-modal";
 import { Card, CardContent } from "@/components/ui/card";
@@ -184,18 +184,8 @@ export default function RoomClient({
   >({});
   const [mixing, setMixing] = useState(false);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
-  const analyzerRef = useRef<AnalyserNode | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [audioContexts, setAudioContexts] = useState<
-    Record<string, AudioContext>
-  >({});
-  const [visualizers, setVisualizers] = useState<Record<string, AnalyserNode>>(
-    {}
-  );
-  const canvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({});
-  const [connectedElements, setConnectedElements] = useState<Set<string>>(
-    new Set()
-  );
+  const [audioContexts] = useState<Record<string, AudioContext>>({});
+  const [, setConnectedElements] = useState<Set<string>>(new Set());
   const audioSourceNodes = useRef<Record<string, MediaElementAudioSourceNode>>(
     {}
   );
@@ -602,7 +592,7 @@ export default function RoomClient({
     return new Blob([view], { type: "audio/wav" });
   };
 
-  const sortedLoops = loops?.sort((a, b) => a.order - b.order) ?? [];
+  // const sortedLoops = loops?.sort((a, b) => a.order - b.order) ?? [];
 
   const toggleRoomPublic = async () => {
     if (!roomMeta || isUpdatingVisibility) return;
@@ -955,7 +945,7 @@ export default function RoomClient({
                         <div className="flex items-center gap-4">
                           <Switch
                             checked={settings[loop.id]?.enabled ?? false}
-                            onCheckedChange={(checked) => toggleLoop(loop.id)}
+                            onCheckedChange={() => toggleLoop(loop.id)}
                             className="data-[state=checked]:bg-violet-500"
                           />
                           <div>

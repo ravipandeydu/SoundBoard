@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LogIn, X } from "lucide-react";
+import { LogIn } from "lucide-react";
 
 import {
   Dialog,

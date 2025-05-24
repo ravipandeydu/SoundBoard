@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { MusicalNoteIcon } from "@heroicons/react/24/outline";
 
 interface PitchDetectorProps {
   isRecording: boolean;

@@ -26,16 +26,11 @@ import {
   SidebarItem,
   SidebarLabel,
   SidebarSection,
-  SidebarHeading,
-  SidebarSpacer,
 } from "@/components/common/sidebar";
 import { SidebarLayout } from "@/components/common/sidebar-layout";
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
   Cog8ToothIcon,
   Square2StackIcon,
-  MagnifyingGlassIcon,
   UserIcon,
   HomeIcon,
   Cog6ToothIcon,
@@ -229,7 +224,6 @@ export default function UserLayout({
                   <SidebarLabel className="hidden lg:block font-medium tracking-wide">
                     {session?.user?.name || "User"}
                   </SidebarLabel>
-                  <ChevronUpIcon className="h-5 w-5 ml-auto opacity-50 group-hover:opacity-100 transition-all duration-300" />
                 </DropdownButton>
                 <DropdownMenu
                   className="min-w-64 bg-black/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-lg"

@@ -14,7 +14,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 
-export default function LandingPage() {
+// Warm up function to be called during page load
+async function warmupDatabase() {
+  try {
+    const response = await fetch("/api/warmup");
+    if (!response.ok) {
+      console.error("Database warmup failed:", await response.text());
+    }
+  } catch (error) {
+    console.error("Database warmup error:", error);
+  }
+}
+
+export default async function LandingPage() {
+  // Call warmup during page load
+  await warmupDatabase();
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
       {/* Hero Section with Animated Waveform Background */}

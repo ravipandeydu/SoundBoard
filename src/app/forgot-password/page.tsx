@@ -139,7 +139,9 @@ export default function ForgotPasswordPage() {
                 <div className="bg-gray-800/50 rounded-lg p-4 text-sm text-gray-300 space-y-3">
                   <p>✨ Check your email for password reset instructions.</p>
                   <p>⏰ The reset link will expire in 1 hour.</p>
-                  <p>📧 If you don't see the email, check your spam folder.</p>
+                  <p>
+                    📧 If you don&apos;t see the email, check your spam folder.
+                  </p>
                 </div>
               )}
 
