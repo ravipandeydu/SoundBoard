@@ -233,29 +233,19 @@ export default function RoomClient({
     });
   }, [loops, settings]);
 
+  // Initialize settings when loops change
   useEffect(() => {
     if (!loops) return;
 
-    // Initialize settings for new loops
-    const updated: Record<string, { enabled: boolean; volume: number }> = {};
-    loops.forEach((l) => {
-      updated[l.id] = { enabled: l.enabled, volume: l.volume ?? 1.0 };
-
-      // Update audio element volume
-      const audioEl = audioRefs.current[l.id];
-      if (audioEl) {
-        audioEl.volume = l.volume ?? 1.0;
-
-        // Add error handling for audio playback
-        audioEl.onerror = (e) => {
-          console.error(`Audio error for loop ${l.id}:`, e);
-          toast.error(
-            `Failed to play audio: ${audioEl.error?.message || "Unknown error"}`
-          );
-        };
-      }
+    const newSettings: Record<string, { enabled: boolean; volume: number }> =
+      {};
+    loops.forEach((loop) => {
+      newSettings[loop.id] = settings[loop.id] || {
+        enabled: loop.enabled,
+        volume: loop.volume ?? 1.0,
+      };
     });
-    setSettings(updated);
+    setSettings(newSettings);
   }, [loops]);
 
   useEffect(() => {
@@ -277,21 +267,6 @@ export default function RoomClient({
   async function startRec() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyzerRef.current = audioContext.createAnalyser();
-      source.connect(analyzerRef.current);
-
-      // Add tempo matching if enabled
-      const destinationNode = analyzerRef.current;
-      if (tempoMatchEnabled) {
-        const bpmInSeconds = 60 / bpm;
-        const delayNode = audioContext.createDelay();
-        delayNode.delayTime.value = bpmInSeconds;
-        source.connect(delayNode);
-        delayNode.connect(destinationNode);
-      }
-
       const rec = new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       rec.ondataavailable = (e) => chunks.push(e.data);
@@ -330,9 +305,6 @@ export default function RoomClient({
         });
       }, 1000);
 
-      // Start visualization
-      visualize();
-
       setTimeout(() => rec.stop(), 30000);
     } catch {
       toast.error("Failed to start recording");
@@ -346,86 +318,6 @@ export default function RoomClient({
     setRecordingTime(0);
   }
 
-  function visualize() {
-    if (!analyzerRef.current || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Set canvas size to match display size
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-    const analyzer = analyzerRef.current;
-    analyzer.fftSize = 2048;
-    const waveformBufferLength = analyzer.frequencyBinCount;
-    const dataArray = new Uint8Array(waveformBufferLength);
-
-    function draw() {
-      requestAnimationFrame(draw);
-
-      if (!recording || !ctx || !analyzer) return;
-
-      analyzer.getByteTimeDomainData(dataArray);
-
-      // Create gradient background
-      const gradient = ctx.createLinearGradient(0, 0, rect.width, 0);
-      gradient.addColorStop(0, "rgba(167, 139, 250, 0.1)"); // Violet
-      gradient.addColorStop(0.5, "rgba(217, 70, 239, 0.1)"); // Fuchsia
-      gradient.addColorStop(1, "rgba(167, 139, 250, 0.1)"); // Violet
-
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, rect.width, rect.height);
-
-      // Draw the waveform
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(167, 139, 250, 0.8)"; // Violet
-      ctx.beginPath();
-
-      const sliceWidth = rect.width / waveformBufferLength;
-      let x = 0;
-
-      for (let i = 0; i < waveformBufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * rect.height) / 2;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
-
-      // Add glow effect
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = "rgba(217, 70, 239, 0.5)"; // Fuchsia glow
-
-      ctx.lineTo(rect.width, rect.height / 2);
-      ctx.stroke();
-
-      // Add reflection
-      ctx.strokeStyle = "rgba(167, 139, 250, 0.2)";
-      ctx.beginPath();
-      x = 0;
-      for (let i = 0; i < waveformBufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = rect.height - (v * rect.height) / 2;
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
-      ctx.stroke();
-    }
-
-    draw();
-  }
-
   const toggleLoop = async (id: string) => {
     try {
       setSettings((prev) => {
@@ -434,7 +326,6 @@ export default function RoomClient({
 
         if (audioEl) {
           if (enabled) {
-            // Try to play the audio
             const playPromise = audioEl.play();
             if (playPromise !== undefined) {
               playPromise.catch((error) => {
@@ -470,7 +361,6 @@ export default function RoomClient({
 
   const changeVolume = async (id: string, volume: number) => {
     try {
-      // Update local state and audio immediately
       setSettings((prev) => {
         const audio = audioRefs.current[id];
         if (audio) {
@@ -479,7 +369,6 @@ export default function RoomClient({
         return { ...prev, [id]: { enabled: prev[id].enabled, volume } };
       });
 
-      // Call the debounced API update
       debouncedApiCalls.current[id]?.(volume);
     } catch (error) {
       console.error("Change volume error:", error);
@@ -695,210 +584,6 @@ export default function RoomClient({
     }
   };
 
-  const setupPlaybackVisualization = useCallback(
-    (loopId: string, audioElement: HTMLAudioElement) => {
-      // If already connected, skip setup
-      if (connectedElements.has(loopId)) {
-        return;
-      }
-
-      try {
-        const audioCtx = new AudioContext();
-        const source = audioCtx.createMediaElementSource(audioElement);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-
-        // Connect nodes
-        source.connect(audioCtx.destination);
-        source.connect(analyser);
-
-        setConnectedElements((prev) => new Set([...prev, loopId]));
-        setAudioContexts((prev) => ({ ...prev, [loopId]: audioCtx }));
-        setVisualizers((prev) => ({ ...prev, [loopId]: analyser }));
-
-        const canvas = canvasRefs.current[loopId];
-        if (!canvas) return;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        // Set canvas size to match display size
-        const updateCanvasSize = () => {
-          const rect = canvas.getBoundingClientRect();
-          canvas.width = rect.width * window.devicePixelRatio;
-          canvas.height = rect.height * window.devicePixelRatio;
-          ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        };
-        updateCanvasSize();
-
-        let animationFrame: number;
-        let isAnimating = false;
-
-        const draw = () => {
-          if (!isAnimating) return;
-
-          animationFrame = requestAnimationFrame(draw);
-
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          analyser.getByteFrequencyData(dataArray);
-
-          const rect = canvas.getBoundingClientRect();
-          ctx.clearRect(0, 0, rect.width, rect.height);
-
-          // Create gradient background
-          const gradient = ctx.createLinearGradient(0, rect.height, 0, 0);
-          gradient.addColorStop(0, "rgba(236, 72, 153, 0.1)");
-          gradient.addColorStop(0.5, "rgba(244, 114, 182, 0.1)");
-          gradient.addColorStop(1, "rgba(236, 72, 153, 0.1)");
-
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, rect.width, rect.height);
-
-          const barWidth = (rect.width / bufferLength) * 2.5;
-          let x = 0;
-
-          for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * rect.height;
-
-            const barGradient = ctx.createLinearGradient(
-              0,
-              rect.height - barHeight,
-              0,
-              rect.height
-            );
-            barGradient.addColorStop(0, "rgba(236, 72, 153, 0.8)");
-            barGradient.addColorStop(1, "rgba(244, 114, 182, 0.4)");
-
-            ctx.fillStyle = barGradient;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "rgba(236, 72, 153, 0.5)";
-
-            ctx.beginPath();
-            ctx.roundRect(
-              x,
-              rect.height - barHeight,
-              barWidth - 1,
-              barHeight,
-              3
-            );
-            ctx.fill();
-
-            x += barWidth;
-          }
-        };
-
-        const startAnimation = () => {
-          if (!isAnimating) {
-            isAnimating = true;
-            draw();
-          }
-        };
-
-        const stopAnimation = () => {
-          isAnimating = false;
-          cancelAnimationFrame(animationFrame);
-          const rect = canvas.getBoundingClientRect();
-          ctx.clearRect(0, 0, rect.width, rect.height);
-        };
-
-        // Handle window resize
-        window.addEventListener("resize", updateCanvasSize);
-
-        // Add event listeners
-        audioElement.addEventListener("play", startAnimation);
-        audioElement.addEventListener("pause", stopAnimation);
-        audioElement.addEventListener("ended", stopAnimation);
-
-        // Start animation if audio is already playing
-        if (!audioElement.paused) {
-          startAnimation();
-        }
-
-        return () => {
-          stopAnimation();
-          window.removeEventListener("resize", updateCanvasSize);
-          audioElement.removeEventListener("play", startAnimation);
-          audioElement.removeEventListener("pause", stopAnimation);
-          audioElement.removeEventListener("ended", stopAnimation);
-        };
-      } catch (error) {
-        console.error("Error setting up visualization:", error);
-        setConnectedElements((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(loopId);
-          return newSet;
-        });
-      }
-    },
-    []
-  );
-
-  // Cleanup effect for audio contexts and connections
-  useEffect(() => {
-    return () => {
-      Object.values(audioContexts).forEach((ctx) => {
-        if (ctx.state !== "closed") {
-          ctx.close();
-        }
-      });
-      Object.values(audioSourceNodes.current).forEach((source) => {
-        source.disconnect();
-      });
-      audioSourceNodes.current = {};
-      setConnectedElements(new Set());
-      setAudioContexts({});
-      setVisualizers({});
-    };
-  }, []);
-
-  // Cleanup effect for removed loops
-  useEffect(() => {
-    if (!loops) return;
-
-    const currentLoopIds = new Set(loops.map((loop) => loop.id));
-
-    // Clean up contexts for removed loops
-    Object.keys(audioContexts).forEach((loopId) => {
-      if (!currentLoopIds.has(loopId)) {
-        const ctx = audioContexts[loopId];
-        if (ctx && ctx.state !== "closed") {
-          ctx.close();
-        }
-        if (audioSourceNodes.current[loopId]) {
-          audioSourceNodes.current[loopId].disconnect();
-          delete audioSourceNodes.current[loopId];
-        }
-        setAudioContexts((prev) => {
-          const newContexts = { ...prev };
-          delete newContexts[loopId];
-          return newContexts;
-        });
-        setVisualizers((prev) => {
-          const newVisualizers = { ...prev };
-          delete newVisualizers[loopId];
-          return newVisualizers;
-        });
-        setConnectedElements((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(loopId);
-          return newSet;
-        });
-      }
-    });
-  }, [loops]);
-
-  // Cleanup debounced calls
-  useEffect(() => {
-    return () => {
-      Object.values(debouncedApiCalls.current).forEach((debouncedFn) => {
-        if (typeof debouncedFn === "function" && "clear" in debouncedFn) {
-          (debouncedFn as any).clear?.();
-        }
-      });
-    };
-  }, []);
-
   // If both data fetching operations have errors, show error state
   if (loopsError && roomMetaError) {
     return (
@@ -984,16 +669,6 @@ export default function RoomClient({
                   onChange={(e) => setTrackName(e.target.value)}
                   className="bg-[#12101a] border-white/10 text-white focus:ring-violet-500/30 focus:border-violet-500/30 placeholder:text-zinc-500 rounded-xl h-12 px-4"
                 />
-                {recording && (
-                  <div className="relative w-full h-32 bg-[#12101a] rounded-xl overflow-hidden">
-                    <canvas
-                      ref={canvasRef}
-                      className="w-full h-full"
-                      width={800}
-                      height={200}
-                    />
-                  </div>
-                )}
                 <div className="flex items-center gap-4">
                   <TooltipButton
                     tooltip={recording ? "Stop recording" : "Start recording"}
@@ -1008,8 +683,12 @@ export default function RoomClient({
                       {recording ? (
                         <>
                           <XMarkIcon className="w-5 h-5" />
-                          <span className="font-medium">
+                          <span className="font-medium flex items-center gap-2">
                             Stop ({30 - recordingTime}s)
+                            <span className="flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rose-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                            </span>
                           </span>
                         </>
                       ) : (
@@ -1223,7 +902,7 @@ export default function RoomClient({
                       ref={(el) => {
                         if (el) {
                           audioRefs.current[loop.id] = el;
-                          el.volume = settings[loop.id]?.volume ?? 1;
+                          el.volume = settings[loop.id]?.volume ?? 1.0;
                         } else {
                           audioRefs.current[loop.id] = null;
                         }

@@ -86,7 +86,7 @@ export function SidebarLayout({
 
       <div className="flex flex-1 flex-col lg:pl-64">
         {/* Navbar */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8 lg:hidden">
           <div className="lg:hidden">
             <NavbarItem
               onClick={() => setShowSidebar(true)}

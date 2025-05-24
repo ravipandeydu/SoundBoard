@@ -7,10 +7,10 @@ import { Avatar } from "@/components/common/avatar";
 import {
   Dropdown,
   DropdownButton,
-  DropdownDivider,
   DropdownItem,
   DropdownLabel,
   DropdownMenu,
+  DropdownDivider,
 } from "@/components/common/dropdown";
 import {
   Navbar,
@@ -26,23 +26,25 @@ import {
   SidebarItem,
   SidebarLabel,
   SidebarSection,
+  SidebarHeading,
+  SidebarSpacer,
 } from "@/components/common/sidebar";
 import { SidebarLayout } from "@/components/common/sidebar-layout";
 import {
   ChevronDownIcon,
+  ChevronUpIcon,
   Cog8ToothIcon,
   Square2StackIcon,
-} from "@heroicons/react/20/solid";
-import {
-  HomeIcon,
-  MegaphoneIcon,
+  MagnifyingGlassIcon,
   UserIcon,
+  HomeIcon,
   Cog6ToothIcon,
+  MegaphoneIcon,
   ChartBarIcon,
   MusicalNoteIcon,
-} from "@heroicons/react/24/solid";
-import { LogoutButton } from "@/components/auth/logout-button";
+} from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 const SidebarMenuItem = ({
   href,
@@ -210,7 +212,7 @@ export default function UserLayout({
               </SidebarSection>
             </SidebarBody>
 
-            <SidebarFooter className="border-t border-white/5 mt-auto">
+            <SidebarFooter className="border-t border-white/5 lg:block hidden">
               <Dropdown>
                 <DropdownButton
                   as={SidebarItem}
@@ -227,7 +229,7 @@ export default function UserLayout({
                   <SidebarLabel className="hidden lg:block font-medium tracking-wide">
                     {session?.user?.name || "User"}
                   </SidebarLabel>
-                  <ChevronDownIcon className="h-5 w-5 ml-auto opacity-50 group-hover:opacity-100 transition-all duration-300" />
+                  <ChevronUpIcon className="h-5 w-5 ml-auto opacity-50 group-hover:opacity-100 transition-all duration-300" />
                 </DropdownButton>
                 <DropdownMenu
                   className="min-w-64 bg-black/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-lg"
