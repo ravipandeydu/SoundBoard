@@ -6,7 +6,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Mixdown {
@@ -23,15 +22,16 @@ model Mixdown {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  image     String?
-  rooms     Room[]   @relation("HostRooms")
-  loops     Loop[]
-  createdAt DateTime @default(now())
-  mixdowns  Mixdown[]
+  id            String      @id @default(cuid())
+  email         String      @unique
+  password      String
+  name          String?
+  image         String?
+  emailVerified Boolean     @default(false)
+  rooms         Room[]      @relation("HostRooms")
+  loops         Loop[]
+  createdAt     DateTime    @default(now())
+  mixdowns      Mixdown[]
 }
 
 model Room {
@@ -60,4 +60,24 @@ model Loop {
   createdAt DateTime @default(now())
   enabled   Boolean  @default(true)
   volume    Float    @default(1.0)
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }

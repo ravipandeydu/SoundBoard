@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import CreateRoom from "@/components/create-room";
+import { JoinRoomButton } from "@/components/rooms/join-room-button";
 import { Music2, Users2, Globe } from "lucide-react";
 import type { Session } from "next-auth";
 import { RoomCard } from "@/components/room-card";
@@ -216,9 +217,13 @@ export default async function RoomsPage() {
               Create, collaborate, and make music together
             </p>
           </div>
-          <CreateRoom />
+          <div className="flex gap-4">
+            <CreateRoom />
+            <JoinRoomButton />
+          </div>
         </div>
 
+        {/* Rooms List */}
         <Suspense fallback={<RoomsSkeleton />}>
           <RoomsContent userId={session.user.id} />
         </Suspense>

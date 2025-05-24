@@ -1,30 +1,41 @@
 // app/api/auth/[...nextauth]/route.ts
-import NextAuth from "next-auth/next";
-import type { AuthOptions } from "next-auth";
-import type { Session } from "next-auth";
+import NextAuth from "next-auth";
+import type { DefaultSession, NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import GithubProvider from "next-auth/providers/github";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
-import { AdapterUser } from "next-auth/adapters";
 import bcrypt from "bcrypt";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      email?: string | null;
-      name?: string | null;
-      image?: string | null;
-    };
+      emailVerified: boolean;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    email: string;
+    name: string | null;
+    emailVerified: boolean;
   }
 }
 
 /** ----------------------------------------------------------------
  *  1. Auth configuration object – exported so others can import it
  * ----------------------------------------------------------------*/
-export const authOptions: AuthOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   pages: {
     signIn: "/login",
@@ -51,12 +62,6 @@ export const authOptions: AuthOptions = {
         try {
           const user = await prisma.user.findUnique({
             where: { email: creds.email },
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              password: true,
-            },
           });
 
           if (!user) {
@@ -68,11 +73,11 @@ export const authOptions: AuthOptions = {
             throw new Error("Invalid password");
           }
 
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          };
+          if (!user.emailVerified) {
+            throw new Error("Please verify your email before logging in");
+          }
+
+          return user;
         } catch (error) {
           console.error("Auth error:", error);
           throw error;
@@ -82,26 +87,24 @@ export const authOptions: AuthOptions = {
   ],
 
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   secret: process.env.NEXTAUTH_SECRET!,
 
   callbacks: {
-    async jwt({ token, user }: { token: JWT; user?: AdapterUser }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
+        token.emailVerified = user.emailVerified;
       }
       return token;
     },
-    async session({ session, token }: { session: Session; token: JWT }) {
+    async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string;
+        session.user.emailVerified = token.emailVerified as boolean;
       }
       return session;
     },
@@ -111,7 +114,6 @@ export const authOptions: AuthOptions = {
 /** ----------------------------------------------------------------
  *  2. Create the handler from that object
  * ----------------------------------------------------------------*/
-// @ts-expect-error - Type issues with Next-Auth v4 and Next.js App Router
 const handler = NextAuth(authOptions);
 
 /** ----------------------------------------------------------------

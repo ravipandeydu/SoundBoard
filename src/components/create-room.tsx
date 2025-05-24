@@ -93,7 +93,8 @@ export default function CreateRoom() {
       }
 
       const data = await res.json();
-      router.push(`/rooms/${data.id}`);
+      console.log(data, "dddddd");
+      router.push(`/rooms/${data.room.id}`);
       toast.success("Room created successfully!");
     } catch {
       toast.error("Failed to create room");

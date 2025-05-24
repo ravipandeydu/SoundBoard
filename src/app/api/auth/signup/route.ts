@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
+import { sendVerificationEmail } from "@/lib/email";
+import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   const { email, password, name } = await req.json();
@@ -23,14 +25,46 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 3) Hash & create inside a try/catch
   try {
+    // 3) Hash password
     const hashed = await bcrypt.hash(password, 10);
-    await prisma.user.create({
-      data: { email, password: hashed, name },
+
+    // 4) Create user
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashed,
+        name,
+        emailVerified: false,
+      },
     });
+
+    // 5) Delete any existing verification tokens for this email
+    await prisma.verificationToken.deleteMany({
+      where: { email },
+    });
+
+    // 6) Create verification token
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.verificationToken.create({
+      data: {
+        email,
+        token,
+        expires,
+      },
+    });
+
+    // 7) Send verification email
+    await sendVerificationEmail(email, token);
+
     return NextResponse.json(
-      { success: true, message: "Account created successfully" },
+      {
+        success: true,
+        message:
+          "Account created successfully. Please check your email to verify your account.",
+      },
       { status: 201 }
     );
   } catch (err: any) {
